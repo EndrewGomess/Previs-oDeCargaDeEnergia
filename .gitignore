@@ -1,0 +1,51 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+
+# Data and Databases
+data/bronze/*.parquet
+data/silver/
+data/gold/
+*.duckdb
+*.duckdb.wal
+*.db
+
+# Keep data directory structure
+!data/bronze/.gitkeep
+
+# dbt artifacts
+target/
+dbt_packages/
+dbt.log
+logs/
+
+# MLflow and model artifacts
+mlruns/
+mlartifacts/
+.mlflow/
+*.pkl
+*.joblib
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# IDEs and OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
