@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""01_download_bronze.py
+"""01_bronze_download.py
 
 Realiza o download idempotente dos arquivos Parquet de carga diária de energia do ONS
 (Operador Nacional do Sistema Elétrico) diretamente do bucket S3 público:

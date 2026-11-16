@@ -1,9 +1,12 @@
 """Tests unitários para a ingestão e integridade da camada Bronze."""
 
+import importlib
 from pathlib import Path
 
-from src.ingestion.download_bronze_01 import get_target_years
-from src.ingestion.validate_bronze_02 import inspect_bronze_file
+bronze_download = importlib.import_module("src.ingestion.01_bronze_download")
+bronze_validate = importlib.import_module("src.ingestion.01_bronze_validate")
+get_target_years = bronze_download.get_target_years
+inspect_bronze_file = bronze_validate.inspect_bronze_file
 
 
 def test_target_years_range():

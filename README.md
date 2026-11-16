@@ -25,14 +25,21 @@ O projeto segue a arquitetura em medalhão (Bronze, Silver, Gold) com engenharia
 │   │   └── gold/             # Série diária filtrada para subsistema SE e testes de integridade
 │   └── dbt_project.yml
 ├── src/
-│   ├── ingestion/            # Pipeline de download e validação bronze
+│   ├── ingestion/            # 01_bronze_*: download e validação da camada Bronze
 │   ├── features/             # Engenharia de atributos (lags >= 7, feriados, calendário)
 │   ├── models/               # Baseline ingênuo e treinamento LightGBM + MLflow
 │   └── evaluation/           # Backtesting com janela temporal (MAE, MAPE)
+├── tests/                    # Testes automatizados (01_bronze_test.py, etc.)
 ├── pyproject.toml            # Gerenciamento de dependências
 ├── .gitignore                # Arquivos ignorados pelo Git
 └── README.md                 # Documentação do projeto
 ```
+
+### Convenção de Nomenclatura por Camada
+- `00_*`: Ambiente e configuração inicial
+- `01_*`: Camada **Bronze** (ingestão, extração e validação de dados brutos)
+- `02_*`: Camada **Silver** (limpeza, tipagem e padronização no dbt)
+- `03_*`: Camada **Gold** (agregação e série diária final do subsistema `SE`)
 
 ---
 
@@ -41,8 +48,8 @@ O projeto segue a arquitetura em medalhão (Bronze, Silver, Gold) com engenharia
 1. **Etapa 1 - Ambiente**: Repositório, dependências com `pyproject.toml`, `.gitignore` e documentação inicial.
 2. **Etapa 2 - Ingestão (Bronze)**: Download direto dos arquivos Parquet de 2018 até hoje do bucket público ONS S3 (`s3://ons-aws-prod-opendata/dataset/carga_energia_di/`), preservando os dados brutos.
 3. **Etapa 3 - Transformação (Silver e Gold)**: Transformações analíticas com `dbt` e `DuckDB`:
-   - Silver: padronização de tipos (`DATETIME` -> `DATE`, tipos numéricos).
-   - Gold: subsistema Sudeste/Centro-Oeste (`id_subsistema = 'SE'`) com testes dbt (`unique`, `not_null`).
+   - Silver (`02_silver_*`): padronização de tipos (`DATETIME` -> `DATE`, `VARCHAR` -> `DOUBLE`).
+   - Gold (`03_gold_*`): subsistema Sudeste/Centro-Oeste (`id_subsistema = 'SE'`) com testes dbt (`unique`, `not_null`).
 4. **Etapa 4 - Baseline**: Previsão ingênua semanal ($y_{t+7} = y_t$, lag de 7 dias).
 5. **Etapa 5 - Modelo Preditivo**: LightGBM com features de calendário, feriados nacionais e lags válidos ($\ge 7$), com rastreamento de experimentos no **MLflow**.
 6. **Etapa 6 - Avaliação e Backtesting**: Validação temporal com janela deslizante/expansiva, comparando modelo vs. baseline via **MAE** e **MAPE**.
@@ -76,12 +83,14 @@ source .venv/bin/activate
 uv pip install -e ".[dev]"
 ```
 
-### 2. Ingestão da Camada Bronze
+### 2. Ingestão e Validação da Camada Bronze (`01_`)
 ```bash
-python -m src.ingestion.download_bronze
+python src/ingestion/01_bronze_download.py
+python src/ingestion/01_bronze_validate.py
+pytest tests/01_bronze_test.py
 ```
 
-### 3. Transformação com dbt (Silver e Gold)
+### 3. Transformação com dbt (Silver `02_` e Gold `03_`)
 ```bash
 cd dbt_project
 dbt run

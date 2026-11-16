@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""02_validate_bronze.py
+"""01_bronze_validate.py
 
 Valida os arquivos Parquet da camada Bronze de acordo com as especificações do ONS
 e com o dicionário de dados (DicionarioDados_Carga_Energia_Diaria.pdf).
