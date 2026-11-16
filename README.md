@@ -92,19 +92,23 @@ pytest tests/01_bronze_test.py
 
 ### 3. Transformação com dbt (Silver `02_` e Gold `03_`)
 ```bash
-cd dbt_project
-dbt run
-dbt test
-cd ..
+python src/transformation/02_silver_gold_dbt.py
+pytest tests/02_silver_test.py tests/03_gold_test.py
 ```
 
-### 4. Execução do Baseline, Treinamento e Avaliação
+### 4. Execução do Baseline Ingênuo Semanal (`04_`)
+```bash
+python src/models/04_baseline_semanal.py
+pytest tests/04_baseline_test.py
+```
+
+### 5. Treinamento LightGBM e Avaliação (Backtesting)
 ```bash
 python -m src.models.train
 python -m src.evaluation.backtest
 ```
 
-### 5. Visualização no MLflow
+### 6. Visualização no MLflow
 ```bash
 mlflow ui
 ```
@@ -113,7 +117,9 @@ mlflow ui
 
 ## 📈 Resultados do Backtesting
 
-| Modelo | MAE (MWmed) | MAPE (%) | Ganho sobre Baseline (%) |
+> **Referência histórica do Baseline Ingênuo Semanal (2018–2026, $n=3.233$ dias)**: MAE = **1.976,47 MWmed** | MAPE = **4,90%** (Regime atual com MMGD $\ge$ 29/04/2023: MAE = **2.236,15 MWmed** | MAPE = **5,07%**).
+
+| Modelo (Janela de Backtesting) | MAE (MWmed) | MAPE (%) | Ganho sobre Baseline (%) |
 | :--- | :--- | :--- | :--- |
 | **Baseline Ingênuo (Semanal)** | *TBD* | *TBD* | 0.0% (Ref.) |
 | **LightGBM** | *TBD* | *TBD* | *TBD* |
