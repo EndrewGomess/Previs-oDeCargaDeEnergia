@@ -102,15 +102,16 @@ python src/models/04_baseline_semanal.py
 pytest tests/04_baseline_test.py
 ```
 
-### 5. Treinamento LightGBM e Avaliação (Backtesting)
+### 5. Treinamento LightGBM + MLflow (`05_`)
 ```bash
-python -m src.models.train
-python -m src.evaluation.backtest
+python src/models/05_train_lightgbm.py
+pytest tests/05_model_test.py
 ```
 
-### 6. Visualização no MLflow
+### 6. Avaliação (Backtesting) e Visualização no MLflow
 ```bash
-mlflow ui
+python -m src.evaluation.backtest
+mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
 
 ---
