@@ -100,11 +100,11 @@ def build_features(df_gold: pd.DataFrame) -> pd.DataFrame:
 
     # 3. Variáveis de calendário e codificação cíclica
     dt = df["data_referencia"].dt
-    df["dayofweek"] = dt.dayofweek
+    df["dayofweek"] = dt.day_of_week
     df["is_weekend"] = (df["dayofweek"] >= 5).astype(int)
     df["day"] = dt.day
     df["month"] = dt.month
-    df["dayofyear"] = dt.dayofyear
+    df["dayofyear"] = dt.day_of_year
     df["weekofyear"] = dt.isocalendar().week.astype(int)
 
     df["sin_dayofweek"] = np.sin(2 * np.pi * df["dayofweek"] / 7.0)
@@ -148,5 +148,9 @@ def build_features(df_gold: pd.DataFrame) -> pd.DataFrame:
             [0, 1],
             default=2,
         )
+
+    # Padroniza features numéricas em float64 para evitar warnings de schema inteiro no MLflow
+    for col in FEATURE_COLUMNS:
+        df[col] = df[col].astype("float64")
 
     return df
