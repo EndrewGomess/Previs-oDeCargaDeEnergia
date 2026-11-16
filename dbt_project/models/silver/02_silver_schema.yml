@@ -24,3 +24,20 @@ models:
         description: "Carga de energia elétrica diária em MWmed."
         tests:
           - not_null
+
+  - name: 02_silver_temperatura_se
+    description: "Camada Silver com temperatura composta ponderada das capitais do subsistema SE/CO."
+    columns:
+      - name: data_referencia
+        description: "Data diária de referência."
+        tests:
+          - unique
+          - not_null
+      - name: temp_media_se
+        description: "Temperatura média diária ponderada (°C)."
+        tests:
+          - not_null
+      - name: temp_max_se
+        description: "Temperatura máxima diária ponderada (°C)."
+        tests:
+          - not_null

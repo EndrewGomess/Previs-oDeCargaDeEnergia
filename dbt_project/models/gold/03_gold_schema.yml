@@ -27,3 +27,24 @@ models:
           - accepted_values:
               arguments:
                 values: ["1_despachada", "2_nao_despachada", "3_com_mmgd"]
+
+  - name: 03_gold_carga_energia_se_clima
+    description: "Camada Gold enriquecida com série de temperatura diária do subsistema SE."
+    columns:
+      - name: data_referencia
+        description: "Data diária de referência."
+        tests:
+          - unique
+          - not_null
+      - name: carga_energia_mwmed
+        description: "Carga de energia elétrica diária em MWmed."
+        tests:
+          - not_null
+      - name: temp_media_se
+        description: "Temperatura média ponderada do subsistema SE (°C)."
+        tests:
+          - not_null
+      - name: temp_max_se
+        description: "Temperatura máxima ponderada do subsistema SE (°C)."
+        tests:
+          - not_null
