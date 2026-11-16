@@ -1,0 +1,26 @@
+version: 2
+
+models:
+  - name: 02_silver_carga_energia
+    description: "Camada Silver com carga de energia diária do ONS padronizada (DATE, DOUBLE) e deduplicada para todos os subsistemas."
+    columns:
+      - name: sk_carga_diaria
+        description: "Chave substituta determinística por subsistema e data de referência."
+        tests:
+          - unique
+          - not_null
+      - name: id_subsistema
+        description: "Código do subsistema elétrico do SIN."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["SE", "S", "NE", "N"]
+      - name: data_referencia
+        description: "Data diária de referência da carga."
+        tests:
+          - not_null
+      - name: carga_energia_mwmed
+        description: "Carga de energia elétrica diária em MWmed."
+        tests:
+          - not_null

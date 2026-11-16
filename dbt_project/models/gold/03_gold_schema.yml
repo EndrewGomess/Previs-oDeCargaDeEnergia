@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: 03_gold_carga_energia_se
+    description: "Camada Gold com a série temporal diária contínua de carga de energia do subsistema Sudeste/Centro-Oeste (SE)."
+    columns:
+      - name: data_referencia
+        description: "Data diária de referência (chave primária da série temporal)."
+        tests:
+          - unique
+          - not_null
+      - name: id_subsistema
+        description: "Subsistema Sudeste/Centro-Oeste."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["SE"]
+      - name: carga_energia_mwmed
+        description: "Carga de energia elétrica diária do subsistema SE em MWmed."
+        tests:
+          - not_null
+      - name: regime_medicao_ons
+        description: "Indicador da metodologia de medição do ONS vigente na data."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["1_despachada", "2_nao_despachada", "3_com_mmgd"]
