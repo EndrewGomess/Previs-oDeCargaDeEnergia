@@ -115,6 +115,14 @@ pytest tests/06_backtest_test.py
 mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
 
+### 7. Bônus: Temperatura como Variável Exógena (`07_`)
+```bash
+python src/ingestion/01_bronze_weather.py
+python src/transformation/02_silver_gold_dbt.py
+python src/evaluation/07_backtest_clima.py
+pytest tests/07_weather_test.py
+```
+
 ---
 
 ## 📈 Resultados do Backtesting
@@ -131,8 +139,31 @@ mlflow ui --backend-store-uri sqlite:///mlflow.db
 
 ---
 
+## 🌡️ Bônus: Impacto da Temperatura como Variável Exógena
+
+Enriquecemos o modelo com temperatura diária ponderada das 4 principais capitais consumidoras do subsistema SE/CO (SP 50%, RJ 25%, BH 15%, DF 10%) via **Open-Meteo ERA5 Reanalysis** (escolhida como alternativa sem falhas após o endpoint público do INMET retornar HTTP 503/404 sem token e os ZIPs anuais somarem ~850 MB com defasagem no mês corrente).
+
+Para garantir avaliação honesta sem vazamento, testamos separadamente:
+1. **Apenas lags climáticos $\ge 7$ dias** (zero previsão futura).
+2. **Previsão meteorológica D+7 realista** (adicionando erro gaussiano $\sigma = 1{,}5^\circ\text{C}$ no teste).
+3. **ERA5 realizado** (teto teórico com previsão climática perfeita).
+
+| Cenário (12 Janelas, 1.049 dias) | MAE (MWmed) | MAPE (%) | Janelas Vencidas | MAE Fold 5 (Verão 2025) | Ganho MAE vs Baseline |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Baseline Ingênuo (Semanal)** | 2.231,37 | 5,03% | - | 2.598,04 | 0,00% |
+| **LightGBM Sem Clima (Ref.)** | 1.977,50 | 4,39% | 11 / 12 | 3.397,00 | +11,38% |
+| **LightGBM + Clima (Lags $\ge 7$)** | 1.955,49 | 4,34% | 10 / 12 | 3.525,13 | +12,36% |
+| **LightGBM + Clima (Prev. D+7 $\sigma=1{,}5^\circ\text{C}$)** | **1.682,21** | **3,74%** | **12 / 12** | **2.388,52** | **+24,61%** |
+| **LightGBM + Clima (ERA5 Realizado)** | 1.358,51 | 3,01% | 12 / 12 | 2.285,42 | +39,12% |
+
+![Impacto da Temperatura Exógena](reports/07_backtest_clima_chart.png)
+
+> **Conclusão do Bônus**: Com previsão meteorológica D+7 realista ($\sigma = 1{,}5^\circ\text{C}$), o ganho sobre o baseline mais que **dobra** (de **+11,38%** para **+24,61%**), vencendo **12 de 12 janelas** e revertendo a derrota do **Fold 5 (verão 2025)** de 3.397,00 para 2.388,52 MWmed.
+
+---
+
 ## 🔮 O Que Eu Faria Com Mais Tempo (Próximos Passos)
-- **Variável exógena climática (INMET)**: Incluir temperatura diária/prevista para mitigar erros em ondas de calor no verão (causa identificada no Fold 5).
+- **Integração operacional com previsão D+7 (Open-Meteo Forecast / CPTEC-INPE)**: Consumir previsões reais salvas diariamente (*vintage forecasts*) em vez de erro simulado.
 - **Ablação do `lag_364` e ajuste de janela de treino**: Avaliar se substituir `lag_364` por médias sazonais recupera os dados de 2018 e melhora a adaptação ao regime MMGD recente.
 - **Segundo concorrente estatístico (`statsforecast`)**: Comparar AutoETS/AutoARIMA contra o LightGBM.
 - **Modelo global e Dashboard**: Treinar modelo único para todos os subsistemas (`SE`, `S`, `NE`, `N`) e publicar dashboard em **Streamlit** e pipeline em **Docker/Makefile**.
