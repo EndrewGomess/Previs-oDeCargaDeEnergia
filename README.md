@@ -27,11 +27,13 @@ O projeto segue a arquitetura em medalhão (Bronze, Silver, Gold) com engenharia
 ├── src/
 │   ├── ingestion/            # 01_bronze_*: download e validação da camada Bronze
 │   ├── transformation/       # 02_silver_gold_dbt.py (orquestrador dbt run/test)
-│   ├── features/             # 05_feature_engineering.py (lags >= 7, feriados, calendário)
+│   ├── features/             # 05_feature_engineering.py e 07_feature_engineering_clima.py
 │   ├── models/               # 04_baseline_semanal.py e 05_train_lightgbm.py + MLflow
-│   └── evaluation/           # 06_backtest.py (walk-forward validation em MAE e MAPE)
-├── reports/                  # Tabelas e gráfico comparativo gerados pelo backtesting
-├── tests/                    # Testes automatizados por etapa (01_ a 06_)
+│   ├── evaluation/           # 06_backtest.py e 07_backtest_clima.py (walk-forward MAE/MAPE)
+│   └── app/                  # 08_dashboard_*: preparação de dados e interface Streamlit/Plotly
+├── app.py                    # Ponto de entrada padrão para execução via `streamlit run app.py`
+├── reports/                  # Tabelas e gráficos gerados pelo backtesting
+├── tests/                    # Testes automatizados por etapa (01_ a 08_)
 ├── pyproject.toml            # Gerenciamento de dependências
 ├── .gitignore                # Arquivos ignorados pelo Git
 └── README.md                 # Documentação do projeto
@@ -42,7 +44,8 @@ O projeto segue a arquitetura em medalhão (Bronze, Silver, Gold) com engenharia
 - `01_*`: Camada **Bronze** (ingestão, extração e validação de dados brutos)
 - `02_*`: Camada **Silver** (limpeza, tipagem e padronização no dbt)
 - `03_*`: Camada **Gold** (agregação e série diária final do subsistema `SE`)
-- `04_*` a `06_*`: Baseline, Modelagem LightGBM + MLflow e Backtesting Temporal
+- `04_*` a `07_*`: Baseline, Modelagem LightGBM + MLflow, Backtesting Temporal e Bônus Climático
+- `08_*` e `app.py`: Dashboard interativo em Streamlit e Plotly
 
 ---
 
@@ -121,6 +124,12 @@ python src/ingestion/01_bronze_weather.py
 python src/transformation/02_silver_gold_dbt.py
 python src/evaluation/07_backtest_clima.py
 pytest tests/07_weather_test.py
+```
+
+### 8. Dashboard Interativo (`08_`)
+```bash
+streamlit run app.py
+pytest tests/08_dashboard_test.py
 ```
 
 ---
