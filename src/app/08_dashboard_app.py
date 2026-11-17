@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """08_dashboard_app.py
 
-Interface interativa em Streamlit e Plotly para apresentação dos resultados do modelo
-de Previsão de Carga Diária de Energia (horizonte D+7) do Subsistema Sudeste/Centro-Oeste (ONS).
+Interface interativa em Streamlit e Plotly (tema escuro corporativo) para apresentação
+dos resultados do modelo de Previsão de Carga Diária de Energia (horizonte D+7) do
+Subsistema Sudeste/Centro-Oeste (ONS), com filtros no topo acima dos cards de KPI e
+tooltips explicativos ao passar o mouse sobre siglas e termos técnicos.
 """
 
 from __future__ import annotations
 
+import html
 import importlib
 from datetime import date
 from typing import Dict, Tuple
@@ -23,25 +26,113 @@ generate_next_7_days_forecast = data_mod.generate_next_7_days_forecast
 build_unified_timeline = data_mod.build_unified_timeline
 compute_kpis = data_mod.compute_kpis
 
-# Paleta corporativa definida para contraste e clareza visual
+# Paleta escura corporativa alinhada ao layout visual da aplicação
+COLOR_BG = "#0b0e14"
+COLOR_CARD = "#141820"
+COLOR_BORDER = "#262b36"
+COLOR_TEXT = "#f8fafc"
+COLOR_MUTED = "#94a3b8"
+COLOR_GRID = "#222834"
+
 COLOR_REAL = "#1f77b4"
 COLOR_FORECAST = "#ff7f0e"
-COLOR_CI_FILL = "rgba(255, 127, 14, 0.16)"
-COLOR_BASELINE = "#6c757d"
-COLOR_ERROR = "#d62728"
+COLOR_CI_FILL = "rgba(255, 127, 14, 0.18)"
+COLOR_BASELINE = "#8b949e"
+COLOR_ERROR = "#ef4444"
 COLOR_TEMP = "#2ca02c"
-COLOR_GRID = "#eef1f5"
+
+# Glossário de siglas e termos técnicos exibidos ao passar o mouse
+GLOSSARY: Dict[str, str] = {
+    "SE": (
+        "Subsistema Sudeste/Centro-Oeste do Sistema Interligado Nacional (SIN), "
+        "responsável pela maior parcela da carga elétrica brasileira."
+    ),
+    "ONS": (
+        "Operador Nacional do Sistema Elétrico: órgão responsável por coordenar e controlar "
+        "a operação da geração e transmissão de energia no Brasil."
+    ),
+    "MWmed": (
+        "Megawatt médio: potência média verificada no dia (energia diária em MWh "
+        "dividida pelas 24 horas), unidade oficial de carga do ONS."
+    ),
+    "LightGBM": (
+        "Light Gradient Boosting Machine: algoritmo de aprendizado de máquina baseado em "
+        "árvores de decisão de alta eficiência para dados tabulares."
+    ),
+    "D+7": (
+        "Horizonte de previsão de até 7 dias à frente a partir da última data "
+        "histórica consolidada."
+    ),
+    "D+1 a D+7": (
+        "Janela operacional dos próximos 7 dias consecutivos após o último dado real observado."
+    ),
+    "Baseline Ingênuo Semanal": (
+        "Modelo de referência que repete o valor de carga observado exatamente 7 dias antes "
+        "(mesmo dia da semana anterior)."
+    ),
+    "t-7": ("Defasagem temporal de 7 dias atrás: repete a carga do mesmo dia da semana anterior."),
+    "Open-Meteo ERA5": (
+        "Base climática global de reanálise atmosférica (ECMWF) utilizada para obter "
+        "séries diárias contínuas de temperatura sem falhas."
+    ),
+    "DuckDB Gold": (
+        "Camada analítica final armazenada em DuckDB com dados tratados, contínuos e "
+        "validados pelo dbt para modelagem e consumo."
+    ),
+    "MAPE": (
+        "Mean Absolute Percentage Error (Erro Percentual Absoluto Médio): média das "
+        "diferenças percentuais absolutas entre carga real e prevista."
+    ),
+    "MAE": (
+        "Mean Absolute Error (Erro Absoluto Médio): média dos erros absolutos em MWmed, "
+        "indicando o desvio médio típico sem anulação de sinais."
+    ),
+    "RMSE": (
+        "Root Mean Squared Error (Raiz do Erro Quadrático Médio): métrica em MWmed que "
+        "penaliza com maior peso grandes desvios pontuais."
+    ),
+    "IC 90%": (
+        "Intervalo de Confiança empírico de 90%: faixa estimada pelos quantis P5 e P95 "
+        "dos erros históricos fora da amostra."
+    ),
+    "MMGD": (
+        "Micro e Minigeração Distribuída (ex.: geração solar em telhados), incorporada "
+        "pelo ONS à carga total a partir de 29/04/2023."
+    ),
+    "Backtesting": (
+        "Validação histórica em janelas sequenciais (walk-forward) simulando previsões em "
+        "produção sem vazamento de dados futuros."
+    ),
+    "Fold": (
+        "Cada janela temporal independente de 90 dias utilizada na avaliação "
+        "walk-forward do modelo."
+    ),
+    "Resíduos": (
+        "Diferença entre a carga real observada e a carga prevista pelo modelo "
+        "(Real - Previsto), em MWmed."
+    ),
+}
 
 REGIME_LABELS: Dict[str, str] = {
-    "1_despachada": "Regime 1: Usinas Despachadas (até fev/2021)",
-    "2_nao_despachada": "Regime 2: Inclui Não Despachadas (mar/2021 a abr/2023)",
-    "3_com_mmgd": "Regime 3: Inclui Estimativa MMGD (a partir de abr/2023)",
+    "1_despachada": "Regime 1: Despachadas (até fev/2021)",
+    "2_nao_despachada": "Regime 2: Não Despachadas (2021-2023)",
+    "3_com_mmgd": "Regime 3: Com MMGD (a partir abr/2023)",
 }
 
 REGIME_TRANSITIONS = [
-    ("2021-03-01", "Transição ONS: Não Despachadas"),
-    ("2023-04-29", "Transição ONS: Inclusão MMGD"),
+    ("2021-03-01", "ONS Não Despachadas"),
+    ("2023-04-29", "ONS Inclusão MMGD"),
 ]
+
+
+def _term(label: str, key: str | None = None) -> str:
+    """Envolve uma sigla ou termo técnico com tooltip CSS exibido ao passar o mouse."""
+    tip_text = GLOSSARY.get(key or label, "")
+    if not tip_text:
+        return html.escape(label)
+    safe_tip = html.escape(tip_text, quote=True)
+    safe_label = html.escape(label)
+    return f'<span class="term-tip" data-tip="{safe_tip}" tabindex="0">{safe_label}</span>'
 
 
 @st.cache_data(show_spinner="Carregando dados históricos e gerando previsão D+7...")
@@ -56,32 +147,114 @@ def load_dashboard_bundle() -> Tuple[
     return df_timeline, df_forecast_7d, bt_folds, clima_comp, clima_folds, df_hist
 
 
-def _apply_clean_style() -> None:
-    """Aplica ajustes sutis de CSS para manter o layout corporativo limpo e bem espaçado."""
+def _apply_dark_style() -> None:
+    """Aplica tema escuro corporativo fiel ao layout visual e estiliza tooltips de termos."""
     st.markdown(
-        """
+        f"""
         <style>
-            .block-container {
-                padding-top: 1.75rem;
+            .stApp {{
+                background-color: {COLOR_BG};
+                color: {COLOR_TEXT};
+            }}
+            .block-container {{
+                padding-top: 1.5rem;
                 padding-bottom: 2.5rem;
                 max-width: 1400px;
-            }
-            div[data-testid="stMetric"] {
-                background-color: #f8fafc;
-                border: 1px solid #e2e8f0;
+            }}
+            header[data-testid="stHeader"] {{
+                background-color: transparent;
+            }}
+            /* Painel de filtros e cards no estilo escuro */
+            div[data-testid="stVerticalBlockBorderWrapper"] {{
+                background-color: {COLOR_CARD};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 10px;
+            }}
+            div[data-testid="stMetric"] {{
+                background-color: {COLOR_CARD};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 10px;
+                padding: 1rem 1.1rem;
+            }}
+            div[data-testid="stMetricLabel"] {{
+                font-weight: 500;
+                color: {COLOR_MUTED};
+                font-size: 0.85rem;
+            }}
+            div[data-testid="stMetricValue"] {{
+                font-weight: 700;
+                color: {COLOR_TEXT};
+            }}
+            .dashboard-header {{
+                border-bottom: 1px solid {COLOR_BORDER};
+                padding-bottom: 0.9rem;
+                margin-bottom: 1rem;
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: space-between;
+                align-items: flex-end;
+                gap: 0.75rem;
+            }}
+            .dashboard-title {{
+                font-size: 1.75rem;
+                font-weight: 700;
+                color: {COLOR_TEXT};
+                margin: 0;
+                line-height: 1.25;
+            }}
+            .dashboard-subtitle {{
+                color: {COLOR_MUTED};
+                font-size: 0.92rem;
+                margin: 0.35rem 0 0 0;
+                max-width: 820px;
+                line-height: 1.45;
+            }}
+            .dashboard-source {{
+                color: {COLOR_MUTED};
+                font-size: 0.78rem;
+                font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            }}
+            /* Tooltips interativos para siglas e termos técnicos */
+            .term-tip {{
+                position: relative;
+                display: inline-block;
+                border-bottom: 1px dotted #64748b;
+                cursor: help;
+                color: inherit;
+            }}
+            .term-tip:hover,
+            .term-tip:focus {{
+                border-bottom-color: {COLOR_FORECAST};
+                outline: none;
+            }}
+            .term-tip::after {{
+                content: attr(data-tip);
+                position: absolute;
+                left: 50%;
+                bottom: calc(100% + 8px);
+                transform: translateX(-50%);
+                width: max-content;
+                max-width: 280px;
+                white-space: normal;
+                background-color: #1e293b;
+                color: #f8fafc;
+                border: 1px solid #334155;
                 border-radius: 6px;
-                padding: 0.9rem 1rem;
-            }
-            div[data-testid="stMetricLabel"] {
-                font-weight: 600;
-                color: #334155;
-            }
-            .dashboard-subtitle {
-                color: #475569;
-                font-size: 1.02rem;
-                margin-top: -0.5rem;
-                margin-bottom: 1.25rem;
-            }
+                padding: 0.5rem 0.65rem;
+                font-size: 0.75rem;
+                font-weight: 400;
+                line-height: 1.35;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.12s ease;
+                z-index: 9999;
+                text-align: left;
+            }}
+            .term-tip:hover::after,
+            .term-tip:focus::after {{
+                opacity: 1;
+            }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -94,6 +267,19 @@ def _format_pt_number(value: float, decimals: int = 1) -> str:
     return formatted.replace(",", "_").replace(".", ",").replace("_", ".")
 
 
+def _base_dark_layout(fig: go.Figure, title: str = "", height: int = 400) -> None:
+    """Aplica padronização visual escura limpa e sem grades excessivas nas figuras Plotly."""
+    fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor=COLOR_CARD,
+        plot_bgcolor=COLOR_CARD,
+        font=dict(color=COLOR_TEXT, family="sans-serif"),
+        title=dict(text=title, font=dict(size=14, color=COLOR_TEXT)) if title else None,
+        height=height,
+        margin=dict(l=20, r=20, t=48 if title else 36, b=24),
+    )
+
+
 def build_main_timeline_figure(
     df_filtered: pd.DataFrame,
     show_baseline: bool,
@@ -102,7 +288,6 @@ def build_main_timeline_figure(
     """Constrói o gráfico principal de série histórica, backtesting out-of-sample e previsão D+7."""
     fig = go.Figure()
 
-    # Faixa de intervalo de confiança de 90% na projeção D+7
     ci_df = df_filtered.dropna(subset=["ic_inferior_mwmed", "ic_superior_mwmed"])
     if show_ci and not ci_df.empty:
         fig.add_trace(
@@ -124,14 +309,13 @@ def build_main_timeline_figure(
                 line=dict(width=0),
                 fill="tonexty",
                 fillcolor=COLOR_CI_FILL,
-                name="Intervalo de Confiança (90%)",
+                name="IC 90%",
                 hovertemplate=(
                     "Data: %{x|%d/%m/%Y}<br>Limite Inferior (90%): %{y:,.1f} MWmed<extra></extra>"
                 ),
             )
         )
 
-    # Série observada pelo ONS
     real_df = df_filtered.dropna(subset=["carga_real_mwmed"])
     if not real_df.empty:
         fig.add_trace(
@@ -145,7 +329,6 @@ def build_main_timeline_figure(
             )
         )
 
-    # Previsão contínua LightGBM (backtesting out-of-sample + horizonte D+1..D+7)
     pred_df = df_filtered.dropna(subset=["carga_prevista_lgbm_mwmed"])
     if not pred_df.empty:
         fig.add_trace(
@@ -153,16 +336,14 @@ def build_main_timeline_figure(
                 x=pred_df["data_referencia"],
                 y=pred_df["carga_prevista_lgbm_mwmed"],
                 mode="lines",
-                name="Carga Prevista (LightGBM D+7)",
+                name="Previsão LightGBM (D+7)",
                 line=dict(color=COLOR_FORECAST, width=2.2, dash="dash"),
                 hovertemplate=(
-                    "Data: %{x|%d/%m/%Y}<br>Carga Prevista (LightGBM): %{y:,.1f} MWmed"
-                    "<extra></extra>"
+                    "Data: %{x|%d/%m/%Y}<br>Previsão LightGBM: %{y:,.1f} MWmed<extra></extra>"
                 ),
             )
         )
 
-    # Referência do Baseline Ingênuo Semanal
     base_df = df_filtered.dropna(subset=["baseline_semanal_mwmed"])
     if show_baseline and not base_df.empty:
         fig.add_trace(
@@ -170,8 +351,8 @@ def build_main_timeline_figure(
                 x=base_df["data_referencia"],
                 y=base_df["baseline_semanal_mwmed"],
                 mode="lines",
-                name="Baseline Ingênuo Semanal (t-7)",
-                line=dict(color=COLOR_BASELINE, width=1.6, dash="dot"),
+                name="Baseline Semanal",
+                line=dict(color=COLOR_BASELINE, width=1.5, dash="dot"),
                 opacity=0.85,
                 hovertemplate=(
                     "Data: %{x|%d/%m/%Y}<br>Baseline Semanal: %{y:,.1f} MWmed<extra></extra>"
@@ -179,7 +360,6 @@ def build_main_timeline_figure(
             )
         )
 
-    # Marcadores verticais das mudanças metodológicas do ONS se estiverem no intervalo
     if not df_filtered.empty:
         min_dt = df_filtered["data_referencia"].min()
         max_dt = df_filtered["data_referencia"].max()
@@ -191,14 +371,13 @@ def build_main_timeline_figure(
                     x=dt_val.timestamp() * 1000,
                     line_width=1,
                     line_dash="dot",
-                    line_color="#94a3b8",
+                    line_color="#64748b",
                     annotation_text=label,
                     annotation_position="top left",
                     annotation_font_size=11,
-                    annotation_font_color="#475569",
+                    annotation_font_color=COLOR_MUTED,
                 )
 
-        # Marcador vertical indicando o início do horizonte futuro D+1..D+7
         future_rows = df_filtered[df_filtered["tipo_registro"] == "Previsao D+7"]
         if not future_rows.empty:
             horizon_start = future_rows["data_referencia"].min()
@@ -213,24 +392,24 @@ def build_main_timeline_figure(
                 annotation_font_color=COLOR_FORECAST,
             )
 
+    _base_dark_layout(fig, height=450)
     fig.update_layout(
-        template="plotly_white",
-        height=470,
-        margin=dict(l=20, r=20, t=40, b=20),
         hovermode="x unified",
         legend=dict(
             orientation="h",
             yanchor="bottom",
             y=1.02,
-            xanchor="left",
-            x=0,
-            bgcolor="rgba(255,255,255,0.8)",
+            xanchor="right",
+            x=1,
+            bgcolor="rgba(0,0,0,0)",
+            font=dict(color=COLOR_MUTED, size=12),
         ),
         xaxis=dict(
-            title="Data de Referência",
+            title="",
             showgrid=False,
             showline=True,
-            linecolor="#cbd5e1",
+            linecolor=COLOR_BORDER,
+            tickfont=dict(color=COLOR_MUTED),
         ),
         yaxis=dict(
             title="Carga de Energia (MWmed)",
@@ -238,13 +417,15 @@ def build_main_timeline_figure(
             gridcolor=COLOR_GRID,
             zeroline=False,
             tickformat=",.0f",
+            tickfont=dict(color=COLOR_MUTED),
+            title_font=dict(color=COLOR_MUTED),
         ),
     )
     return fig
 
 
 def build_error_timeseries_figure(df_eval: pd.DataFrame) -> go.Figure:
-    """Constrói gráfico de barras/área do erro absoluto diário destacando picos de erro."""
+    """Constrói gráfico de área do erro absoluto diário destacando picos de erro."""
     fig = go.Figure()
 
     fig.add_trace(
@@ -255,7 +436,7 @@ def build_error_timeseries_figure(df_eval: pd.DataFrame) -> go.Figure:
             name="Erro Absoluto LightGBM",
             line=dict(color=COLOR_ERROR, width=1.8),
             fill="tozeroy",
-            fillcolor="rgba(214, 39, 40, 0.14)",
+            fillcolor="rgba(239, 68, 68, 0.16)",
             customdata=df_eval["erro_percentual_lgbm"],
             hovertemplate=(
                 "Data: %{x|%d/%m/%Y}<br>Erro Absoluto: %{y:,.1f} MWmed"
@@ -271,24 +452,24 @@ def build_error_timeseries_figure(df_eval: pd.DataFrame) -> go.Figure:
             mode="lines",
             name="Erro Absoluto Baseline",
             line=dict(color=COLOR_BASELINE, width=1.4, dash="dot"),
-            opacity=0.8,
+            opacity=0.85,
             hovertemplate=("Data: %{x|%d/%m/%Y}<br>Erro Baseline: %{y:,.1f} MWmed<extra></extra>"),
         )
     )
 
+    _base_dark_layout(fig, title="Evolução Diária do Erro Absoluto (MWmed)", height=360)
     fig.update_layout(
-        template="plotly_white",
-        title="Evolução Diária do Erro Absoluto (MWmed)",
-        height=380,
-        margin=dict(l=20, r=20, t=45, b=20),
         hovermode="x unified",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
-        xaxis=dict(title="Data", showgrid=False, linecolor="#cbd5e1"),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, font=dict(color=COLOR_MUTED)),
+        xaxis=dict(
+            title="", showgrid=False, linecolor=COLOR_BORDER, tickfont=dict(color=COLOR_MUTED)
+        ),
         yaxis=dict(
             title="Erro Absoluto (MWmed)",
             showgrid=True,
             gridcolor=COLOR_GRID,
             tickformat=",.0f",
+            tickfont=dict(color=COLOR_MUTED),
         ),
     )
     return fig
@@ -325,17 +506,24 @@ def build_residual_histogram_figure(df_eval: pd.DataFrame) -> go.Figure:
         )
     )
 
-    fig.add_vline(x=0, line_width=1.4, line_dash="dash", line_color="#334155")
+    fig.add_vline(x=0, line_width=1.4, line_dash="dash", line_color=COLOR_MUTED)
 
+    _base_dark_layout(fig, title="Distribuição de Resíduos (Carga Real - Prevista)", height=360)
     fig.update_layout(
-        template="plotly_white",
-        title="Distribuição de Resíduos (Carga Real - Prevista)",
         barmode="overlay",
-        height=380,
-        margin=dict(l=20, r=20, t=45, b=20),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
-        xaxis=dict(title="Resíduo (MWmed)", showgrid=False, tickformat=",.0f"),
-        yaxis=dict(title="Contagem de Dias", showgrid=True, gridcolor=COLOR_GRID),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, font=dict(color=COLOR_MUTED)),
+        xaxis=dict(
+            title="Resíduo (MWmed)",
+            showgrid=False,
+            tickformat=",.0f",
+            tickfont=dict(color=COLOR_MUTED),
+        ),
+        yaxis=dict(
+            title="Contagem de Dias",
+            showgrid=True,
+            gridcolor=COLOR_GRID,
+            tickfont=dict(color=COLOR_MUTED),
+        ),
     )
     return fig
 
@@ -344,7 +532,7 @@ def build_folds_bar_figure(bt_folds: pd.DataFrame) -> go.Figure:
     """Constrói gráfico de barras comparando o MAE por janela temporal (fold)."""
     fig = go.Figure()
 
-    fold_labels = [f"Fold {int(f)}" for f in bt_folds["fold"]]
+    fold_labels = [f"F{int(f)}" for f in bt_folds["fold"]]
     fig.add_trace(
         go.Bar(
             x=fold_labels,
@@ -364,15 +552,20 @@ def build_folds_bar_figure(bt_folds: pd.DataFrame) -> go.Figure:
         )
     )
 
+    _base_dark_layout(
+        fig, title="Desempenho Walk-Forward por Janela de 90 Dias (MAE em MWmed)", height=350
+    )
     fig.update_layout(
-        template="plotly_white",
-        title="Desempenho Walk-Forward por Janela de 90 Dias (MAE em MWmed)",
         barmode="group",
-        height=360,
-        margin=dict(l=20, r=20, t=45, b=20),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
-        xaxis=dict(title="Janela de Backtesting", showgrid=False),
-        yaxis=dict(title="MAE (MWmed)", showgrid=True, gridcolor=COLOR_GRID, tickformat=",.0f"),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, font=dict(color=COLOR_MUTED)),
+        xaxis=dict(title="Janela de Backtesting", showgrid=False, tickfont=dict(color=COLOR_MUTED)),
+        yaxis=dict(
+            title="MAE (MWmed)",
+            showgrid=True,
+            gridcolor=COLOR_GRID,
+            tickformat=",.0f",
+            tickfont=dict(color=COLOR_MUTED),
+        ),
     )
     return fig
 
@@ -406,23 +599,28 @@ def build_climate_correlation_figure(df_filtered: pd.DataFrame) -> go.Figure:
             secondary_y=True,
         )
 
-    fig.update_layout(
-        template="plotly_white",
-        title="Dinâmica Carga Elétrica (MWmed) vs Temperatura Média SE (°C)",
-        height=380,
-        margin=dict(l=20, r=20, t=45, b=20),
-        hovermode="x unified",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
+    _base_dark_layout(
+        fig, title="Dinâmica Carga Elétrica (MWmed) vs Temperatura Média SE (°C)", height=360
     )
-    fig.update_xaxes(title_text="Data de Referência", showgrid=False)
+    fig.update_layout(
+        hovermode="x unified",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, font=dict(color=COLOR_MUTED)),
+    )
+    fig.update_xaxes(title_text="", showgrid=False, tickfont=dict(color=COLOR_MUTED))
     fig.update_yaxes(
         title_text="Carga de Energia (MWmed)",
         secondary_y=False,
         showgrid=True,
         gridcolor=COLOR_GRID,
         tickformat=",.0f",
+        tickfont=dict(color=COLOR_MUTED),
     )
-    fig.update_yaxes(title_text="Temperatura Média (°C)", secondary_y=True, showgrid=False)
+    fig.update_yaxes(
+        title_text="Temperatura Média (°C)",
+        secondary_y=True,
+        showgrid=False,
+        tickfont=dict(color=COLOR_MUTED),
+    )
     return fig
 
 
@@ -453,94 +651,139 @@ def build_climate_scenarios_figure(clima_comp: pd.DataFrame) -> go.Figure:
             )
         ]
     )
+    _base_dark_layout(
+        fig, title="Impacto da Temperatura Exógena (12 Janelas Walk-Forward)", height=360
+    )
     fig.update_layout(
-        template="plotly_white",
-        title="Impacto da Temperatura Exógena (12 Janelas Walk-Forward)",
-        height=380,
-        margin=dict(l=20, r=20, t=45, b=20),
-        xaxis=dict(title="MAE (MWmed)", showgrid=True, gridcolor=COLOR_GRID, tickformat=",.0f"),
-        yaxis=dict(title="", autorange="reversed", showgrid=False),
+        xaxis=dict(
+            title="MAE (MWmed)",
+            showgrid=True,
+            gridcolor=COLOR_GRID,
+            tickformat=",.0f",
+            tickfont=dict(color=COLOR_MUTED),
+        ),
+        yaxis=dict(
+            title="", autorange="reversed", showgrid=False, tickfont=dict(color=COLOR_MUTED)
+        ),
     )
     return fig
 
 
-def render_sidebar(
+def render_top_filters(
     df_timeline: pd.DataFrame,
     bt_folds: pd.DataFrame,
 ) -> Tuple[date, date, bool, bool, str, str]:
-    """Renderiza os filtros interativos na barra lateral e retorna as seleções do usuário."""
-    st.sidebar.header("Filtros de Análise")
-
+    """Renderiza a barra horizontal de filtros em card acima dos KPIs e retorna as seleções."""
     min_date = df_timeline["data_referencia"].min().date()
     max_date = df_timeline["data_referencia"].max().date()
     default_start = max(min_date, (pd.Timestamp(max_date) - pd.Timedelta(days=90)).date())
 
-    preset = st.sidebar.selectbox(
-        "Recorte Temporal Rápido",
-        options=[
-            "Últimos 90 dias + Previsão D+7",
-            "Últimos 30 dias + Previsão D+7",
-            "Período de Backtesting (2024-2026)",
-            "Série Completa (2018-2026)",
-            "Personalizado",
-        ],
-        index=0,
-    )
+    preset_options = [
+        "Últimos 90 dias + Previsão D+7",
+        "Últimos 30 dias + Previsão D+7",
+        "Período de Backtesting (2024-2026)",
+        "Série Completa (2018-2026)",
+        "Personalizado",
+    ]
 
-    if preset == "Últimos 30 dias + Previsão D+7":
-        preset_start = max(min_date, (pd.Timestamp(max_date) - pd.Timedelta(days=37)).date())
-        preset_end = max_date
-    elif preset == "Últimos 90 dias + Previsão D+7":
-        preset_start = default_start
-        preset_end = max_date
-    elif preset == "Período de Backtesting (2024-2026)":
-        preset_start = date(2024, 1, 1)
-        preset_end = max_date
-    elif preset == "Série Completa (2018-2026)":
-        preset_start = min_date
-        preset_end = max_date
-    else:
-        preset_start = default_start
-        preset_end = max_date
+    if "filter_start_date" not in st.session_state:
+        st.session_state["filter_start_date"] = default_start
+    if "filter_end_date" not in st.session_state:
+        st.session_state["filter_end_date"] = max_date
+    if "filter_preset" not in st.session_state:
+        st.session_state["filter_preset"] = preset_options[0]
 
-    start_date = st.sidebar.date_input(
-        "Data Inicial",
-        value=preset_start,
-        min_value=min_date,
-        max_value=max_date,
-    )
-    end_date = st.sidebar.date_input(
-        "Data Final",
-        value=preset_end,
-        min_value=min_date,
-        max_value=max_date,
-    )
+    def _on_preset_change() -> None:
+        selected = st.session_state["filter_preset"]
+        if selected == "Últimos 30 dias + Previsão D+7":
+            st.session_state["filter_start_date"] = max(
+                min_date, (pd.Timestamp(max_date) - pd.Timedelta(days=37)).date()
+            )
+            st.session_state["filter_end_date"] = max_date
+        elif selected == "Últimos 90 dias + Previsão D+7":
+            st.session_state["filter_start_date"] = default_start
+            st.session_state["filter_end_date"] = max_date
+        elif selected == "Período de Backtesting (2024-2026)":
+            st.session_state["filter_start_date"] = date(2024, 1, 1)
+            st.session_state["filter_end_date"] = max_date
+        elif selected == "Série Completa (2018-2026)":
+            st.session_state["filter_start_date"] = min_date
+            st.session_state["filter_end_date"] = max_date
+
+    def _on_manual_date_change() -> None:
+        st.session_state["filter_preset"] = "Personalizado"
+
+    with st.container(border=True):
+        c1, c2, c3, c4, c5, c6 = st.columns([1.35, 1.0, 1.0, 1.3, 1.15, 1.3])
+
+        with c1:
+            st.selectbox(
+                "Recorte Temporal",
+                options=preset_options,
+                key="filter_preset",
+                on_change=_on_preset_change,
+                help=(
+                    "Atalhos rápidos de período. A projeção D+7 cobre os 7 dias "
+                    "seguintes ao último registro histórico observado."
+                ),
+            )
+        with c2:
+            start_date = st.date_input(
+                "Data Inicial",
+                min_value=min_date,
+                max_value=max_date,
+                key="filter_start_date",
+                on_change=_on_manual_date_change,
+                help="Data de início exibida na série temporal e usada nos KPIs.",
+            )
+        with c3:
+            end_date = st.date_input(
+                "Data Final",
+                min_value=min_date,
+                max_value=max_date,
+                key="filter_end_date",
+                on_change=_on_manual_date_change,
+                help="Data final exibida (inclui o horizonte projetado D+1 a D+7).",
+            )
+        with c4:
+            regime_filter = st.selectbox(
+                "Regime de Medição ONS",
+                options=["Todos"] + list(REGIME_LABELS.keys()),
+                format_func=lambda key: (
+                    "Todos os Regimes" if key == "Todos" else REGIME_LABELS[key]
+                ),
+                help=(
+                    "Marcos metodológicos do ONS: inclusão de geração não despachada "
+                    "(mar/2021) e estimativa de MMGD - Micro e Minigeração Distribuída (abr/2023)."
+                ),
+            )
+        with c5:
+            fold_options = ["Todos"] + [f"Fold {int(f)}" for f in bt_folds["fold"]]
+            fold_filter = st.selectbox(
+                "Janela Backtesting (90d)",
+                options=fold_options,
+                format_func=lambda v: "Todas as Janelas" if v == "Todos" else v,
+                help=(
+                    "Cada Fold representa uma janela independente de 90 dias avaliada fora "
+                    "da amostra no backtesting walk-forward (2024 a 2026)."
+                ),
+            )
+        with c6:
+            st.markdown("<div style='height: 0.35rem;'></div>", unsafe_allow_html=True)
+            show_baseline = st.checkbox(
+                "Exibir Baseline Semanal (t-7)",
+                value=True,
+                help=GLOSSARY["Baseline Ingênuo Semanal"],
+            )
+            show_ci = st.checkbox(
+                "Exibir Intervalo de Confiança (90%)",
+                value=True,
+                help=GLOSSARY["IC 90%"],
+            )
 
     if start_date > end_date:
-        st.sidebar.warning("A Data Inicial deve ser anterior ou igual à Data Final.")
+        st.warning("A Data Inicial deve ser anterior ou igual à Data Final.")
         start_date, end_date = end_date, start_date
-
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("Camadas do Gráfico")
-    show_baseline = st.sidebar.checkbox("Exibir Baseline Semanal (t-7)", value=True)
-    show_ci = st.sidebar.checkbox("Exibir Intervalo de Confiança (90%)", value=True)
-
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("Segmentação ONS e Janelas")
-    regime_filter = st.sidebar.selectbox(
-        "Regime de Medição ONS",
-        options=["Todos"] + list(REGIME_LABELS.keys()),
-        format_func=lambda key: "Todos os Regimes" if key == "Todos" else REGIME_LABELS[key],
-    )
-
-    fold_options = ["Todos"] + [f"Fold {int(f)}" for f in bt_folds["fold"]]
-    fold_filter = st.sidebar.selectbox("Janela de Backtesting (90 dias)", options=fold_options)
-
-    st.sidebar.markdown("---")
-    st.sidebar.caption(
-        "Fonte: Dados Abertos ONS (2018-2026) e Open-Meteo ERA5 | "
-        "Armazenamento: DuckDB (Gold) | Rastreamento: MLflow"
-    )
 
     return start_date, end_date, show_baseline, show_ci, regime_filter, fold_filter
 
@@ -548,26 +791,37 @@ def render_sidebar(
 def main() -> None:
     """Ponto de entrada principal da aplicação Streamlit."""
     st.set_page_config(
-        page_title="Previsão de Carga de Energia - Subsistema SE (ONS)",
+        page_title="Dashboard de Previsão de Demanda de Energia - Subsistema SE (ONS)",
         layout="wide",
-        initial_sidebar_state="expanded",
+        initial_sidebar_state="collapsed",
     )
-    _apply_clean_style()
+    _apply_dark_style()
 
-    df_timeline, df_forecast_7d, bt_folds, clima_comp, clima_folds, _ = load_dashboard_bundle()
+    df_timeline, df_forecast_7d, bt_folds, clima_comp, _, _ = load_dashboard_bundle()
 
-    # Cabeçalho principal sem emojis ou símbolos decorativos
-    st.title("Dashboard de Previsão de Demanda de Energia - Subsistema SE (ONS)")
-    st.markdown(
+    # Cabeçalho superior com tooltips explicativos nas siglas
+    header_html = (
+        '<div class="dashboard-header">'
+        "<div>"
+        '<h1 class="dashboard-title">'
+        f"Dashboard de Previsão de Demanda de Energia - Subsistema {_term('SE')} ({_term('ONS')})"
+        "</h1>"
         '<p class="dashboard-subtitle">'
-        "Monitoramento operacional da carga diária de energia elétrica (MWmed) no Subsistema "
-        "Sudeste/Centro-Oeste, comparando o modelo LightGBM (horizonte D+7 sem vazamento "
-        "temporal) ao Baseline Ingênuo Semanal e analisando o ganho da temperatura exógena."
-        "</p>",
-        unsafe_allow_html=True,
+        f"Monitoramento operacional da carga diária de energia elétrica ({_term('MWmed')}) "
+        f"no Subsistema Sudeste/Centro-Oeste, comparando o modelo {_term('LightGBM')} "
+        f"(horizonte {_term('D+7')} sem vazamento temporal) ao "
+        f"{_term('Baseline Ingênuo Semanal')} e ao experimento climático."
+        "</p>"
+        "</div>"
+        '<div class="dashboard-source">'
+        f"Fonte: {_term('ONS')} (2018-2026) | {_term('Open-Meteo ERA5')} | {_term('DuckDB Gold')}"
+        "</div>"
+        "</div>"
     )
+    st.markdown(header_html, unsafe_allow_html=True)
 
-    start_date, end_date, show_baseline, show_ci, regime_filter, fold_filter = render_sidebar(
+    # Filtros posicionados no topo acima dos cartões de KPI
+    start_date, end_date, show_baseline, show_ci, regime_filter, fold_filter = render_top_filters(
         df_timeline, bt_folds
     )
 
@@ -586,7 +840,7 @@ def main() -> None:
 
     kpis = compute_kpis(df_filtered, df_forecast_7d)
 
-    # Cartões de métricas principais no topo da página
+    # Cartões de métricas principais logo abaixo dos filtros
     col1, col2, col3, col4 = st.columns(4)
     has_eval = int(kpis["n_eval"]) > 0
 
@@ -598,9 +852,14 @@ def main() -> None:
                 value=f"{_format_pt_number(float(kpis['lgbm_mape']), 2)}%",
                 delta=f"{_format_pt_number(diff_mape, 2)} p.p. vs Baseline",
                 delta_color="inverse",
+                help=GLOSSARY["MAPE"],
             )
         else:
-            st.metric(label="MAPE (Erro Percentual Médio)", value="N/D")
+            st.metric(
+                label="MAPE (Erro Percentual Médio)",
+                value="N/D",
+                help=GLOSSARY["MAPE"],
+            )
 
     with col2:
         if has_eval:
@@ -610,9 +869,14 @@ def main() -> None:
                 value=f"{_format_pt_number(float(kpis['lgbm_mae']), 1)} MWmed",
                 delta=f"{_format_pt_number(diff_mae, 1)} MWmed vs Baseline",
                 delta_color="inverse",
+                help=f"{GLOSSARY['MAE']} | {GLOSSARY['MWmed']}",
             )
         else:
-            st.metric(label="MAE (Erro Absoluto Médio)", value="N/D")
+            st.metric(
+                label="MAE (Erro Absoluto Médio)",
+                value="N/D",
+                help=f"{GLOSSARY['MAE']} | {GLOSSARY['MWmed']}",
+            )
 
     with col3:
         if has_eval:
@@ -622,16 +886,23 @@ def main() -> None:
                 value=f"{_format_pt_number(float(kpis['lgbm_rmse']), 1)} MWmed",
                 delta=f"{_format_pt_number(diff_rmse, 1)} MWmed vs Baseline",
                 delta_color="inverse",
+                help=f"{GLOSSARY['RMSE']} | {GLOSSARY['MWmed']}",
             )
         else:
-            st.metric(label="RMSE (Raiz do Erro Quadrático)", value="N/D")
+            st.metric(
+                label="RMSE (Raiz do Erro Quadrático)",
+                value="N/D",
+                help=f"{GLOSSARY['RMSE']} | {GLOSSARY['MWmed']}",
+            )
 
     with col4:
+        peak_date_br = pd.Timestamp(str(kpis["peak_next_7d_date"])).strftime("%d/%m/%Y")
         st.metric(
             label="Pico de Carga Prevista (D+1 a D+7)",
             value=f"{_format_pt_number(float(kpis['peak_next_7d_mwmed']), 1)} MWmed",
-            delta=f"Data prevista: {kpis['peak_next_7d_date']}",
+            delta=f"Data prevista: {peak_date_br}",
             delta_color="off",
+            help=f"{GLOSSARY['D+1 a D+7']} | {GLOSSARY['MWmed']}",
         )
 
     if not has_eval:
@@ -641,13 +912,21 @@ def main() -> None:
             "marcadas como N/D."
         )
 
-    # Gráfico principal da série histórica e projeção futura
-    st.subheader("Série Histórica Observada e Previsão de Carga (Horizonte D+7)")
-    if df_filtered.empty:
-        st.warning("Nenhum registro encontrado para a combinação de filtros selecionada.")
-    else:
-        main_fig = build_main_timeline_figure(df_filtered, show_baseline, show_ci)
-        st.plotly_chart(main_fig, width="stretch")
+    # Gráfico principal dentro de card escuro
+    with st.container(border=True):
+        st.markdown(
+            f"<div style='font-size: 1.05rem; font-weight: 600; margin-bottom: 0.25rem;'>"
+            f"Série Histórica Observada e Previsão de Carga (Horizonte {_term('D+7')}) "
+            f"&nbsp;|&nbsp; <span style='font-size:0.8rem;font-weight:400;color:{COLOR_MUTED};'>"
+            f"{_term('IC 90%')} &middot; {_term('t-7')} &middot; {_term('MMGD')}"
+            f"</span></div>",
+            unsafe_allow_html=True,
+        )
+        if df_filtered.empty:
+            st.warning("Nenhum registro encontrado para a combinação de filtros selecionada.")
+        else:
+            main_fig = build_main_timeline_figure(df_filtered, show_baseline, show_ci)
+            st.plotly_chart(main_fig, width="stretch")
 
     # Seção secundária em abas organizadas
     tab_erro, tab_clima, tab_dados = st.tabs(
@@ -659,6 +938,13 @@ def main() -> None:
     )
 
     with tab_erro:
+        st.markdown(
+            f"<p style='font-size:0.84rem;color:{COLOR_MUTED};margin-bottom:0.6rem;'>"
+            f"Avaliação de {_term('Resíduos')} e erros diários ({_term('MAE')} em "
+            f"{_term('MWmed')}) ao longo das janelas de {_term('Backtesting')} "
+            f"({_term('Fold')} de 90 dias).</p>",
+            unsafe_allow_html=True,
+        )
         eval_df = df_filtered.dropna(
             subset=["carga_real_mwmed", "carga_prevista_lgbm_mwmed"]
         ).copy()
@@ -678,11 +964,14 @@ def main() -> None:
 
     with tab_clima:
         st.markdown(
-            "O experimento bônus avalia a inclusão da temperatura média diária ponderada das "
-            "quatro principais capitais do subsistema SE/CO (SP 50%, RJ 25%, BH 15%, DF 10%) "
-            "proveniente da reanálise ERA5 (Open-Meteo). Com erro realista de previsão "
-            "meteorológica D+7 (desvio padrão de 1,5 °C), o ganho de MAE sobre o baseline "
-            "sobe de 11,38% para 24,61% e o modelo passa a vencer todas as 12 janelas."
+            f"<p style='font-size:0.85rem;color:{COLOR_MUTED};'>"
+            f"O experimento bônus avalia a inclusão da temperatura média diária ponderada "
+            f"das quatro principais capitais do subsistema {_term('SE')} (SP 50%, RJ 25%, "
+            f"BH 15%, DF 10%) via {_term('Open-Meteo ERA5')}. Com erro realista de previsão "
+            f"meteorológica {_term('D+7')} (desvio padrão de 1,5 °C), o ganho de "
+            f"{_term('MAE')} sobre o {_term('Baseline Ingênuo Semanal')} sobe de 11,38% "
+            f"para 24,61% e o {_term('LightGBM')} passa a vencer todas as 12 janelas.</p>",
+            unsafe_allow_html=True,
         )
         clima_col1, clima_col2 = st.columns(2)
         with clima_col1:
@@ -710,7 +999,7 @@ def main() -> None:
         df_7d_display = df_forecast_7d.copy()
         df_7d_display["data_referencia"] = pd.to_datetime(
             df_7d_display["data_referencia"]
-        ).dt.strftime("%Y-%m-%d")
+        ).dt.strftime("%d/%m/%Y")
         df_7d_display = df_7d_display.rename(
             columns={
                 "data_referencia": "Data Prevista",
