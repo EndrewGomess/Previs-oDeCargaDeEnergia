@@ -82,3 +82,19 @@ def test_streamlit_apptest_smoke():
     assert not at.error
     assert len(at.metric) == 4
     assert len(at.tabs) == 3
+
+
+def test_dashboard_launcher_helpers():
+    """Valida utilitários de porta livre, verificação do DuckDB e argumentos do launcher."""
+    launcher = importlib.import_module("launch_dashboard")
+
+    port = launcher.find_free_port(8501)
+    assert 8501 <= port < 8521
+
+    venv_py = launcher.get_venv_python()
+    assert launcher.is_gold_warehouse_ready(venv_py)
+
+    parsed = launcher.parse_args(["--port", "8505", "--no-browser", "--force-refresh"])
+    assert parsed.port == 8505
+    assert parsed.no_browser is True
+    assert parsed.force_refresh is True

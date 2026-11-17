@@ -127,6 +127,17 @@ pytest tests/07_weather_test.py
 ```
 
 ### 8. Dashboard Interativo (`08_`)
+Para abrir automaticamente no navegador padrão (configurando ambiente virtual, dependências, banco DuckDB e servidor Streamlit se necessário):
+```bash
+# Multiplataforma (Windows, macOS e Linux)
+python launch_dashboard.py
+
+# Ou via atalho do sistema:
+# Windows: clique duas vezes em abrir_dashboard.bat (ou execute .\abrir_dashboard.bat)
+# Linux/macOS: ./abrir_dashboard.sh
+```
+
+Execução manual direta e testes:
 ```bash
 streamlit run app.py
 pytest tests/08_dashboard_test.py

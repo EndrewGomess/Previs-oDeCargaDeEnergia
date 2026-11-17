@@ -20,10 +20,22 @@ logging.basicConfig(
 logger = logging.getLogger("transformation.dbt")
 
 
+def _resolve_dbt_command() -> list[str]:
+    """Localiza o executável do dbt no ambiente virtual (Linux/macOS/Windows) ou PATH."""
+    candidates = [
+        Path(".venv/bin/dbt"),
+        Path(".venv/Scripts/dbt.exe"),
+        Path(".venv/Scripts/dbt"),
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return [str(candidate.resolve())]
+    return ["dbt"]
+
+
 def run_dbt_pipeline(dbt_dir: Path = Path("dbt_project")) -> None:
     """Executa dbt run e dbt test dentro do diretório dbt_project."""
-    dbt_bin = Path(".venv/bin/dbt")
-    cmd_prefix = [str(dbt_bin.resolve())] if dbt_bin.exists() else ["dbt"]
+    cmd_prefix = _resolve_dbt_command()
 
     for action in ["run", "test"]:
         logger.info("Executando dbt %s em %s ...", action, dbt_dir.resolve())
