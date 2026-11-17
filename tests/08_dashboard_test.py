@@ -70,8 +70,48 @@ def test_unified_timeline_kpis_and_figures():
     assert len(fig_clima_scen.data) == 1
 
 
+def test_slide_analytics_and_presentation_figures():
+    """Valida métricas explicativas dos slides e geração das 7 figuras Plotly da apresentação."""
+    dash_slides = importlib.import_module("src.app.08_dashboard_slides")
+
+    df_hist = dash_data.load_historical_series()
+    bt_preds, bt_folds, clima_comp, clima_folds = dash_data.load_backtest_artifacts()
+    analytics = dash_data.compute_slide_analytics(
+        df_hist, bt_preds, bt_folds, clima_comp, clima_folds
+    )
+
+    s = analytics["overall_summary"]
+    assert s["n_days"] == len(bt_preds)
+    assert s["lgbm_base_mae"] < s["baseline_mae"]
+    assert s["lgbm_clima_prev_mae"] < s["lgbm_base_mae"]
+    assert s["fold5_lgbm_clima_prev_mae"] < s["fold5_lgbm_base_mae"]
+
+    day_bd = analytics["day_type_breakdown"]
+    assert len(day_bd) >= 5
+    eco_row = day_bd[day_bd["categoria"].str.startswith("Eco D+7")].iloc[0]
+    assert eco_row["ganho_pct"] > 40.0
+
+    fig1 = dash_slides.build_slide1_progression_figure(s)
+    fig2 = dash_slides.build_slide2_daytype_figure(day_bd)
+    fig3 = dash_slides.build_slide3_holiday_echo_figure(analytics["eval_enriched"])
+    fig4 = dash_slides.build_slide4_shock_damping_figure(analytics["eval_enriched"])
+    fig5 = dash_slides.build_slide5_feature_importance_figure(
+        analytics["group_importance_base"], analytics["group_importance_clima"]
+    )
+    fig6 = dash_slides.build_slide6_fold5_climate_figure(analytics["fold_comparison"])
+    fig7 = dash_slides.build_slide7_error_tail_figure(analytics["error_quantiles"])
+
+    assert len(fig1.data) == 1
+    assert len(fig2.data) == 2
+    assert len(fig3.data) == 3
+    assert len(fig4.data) == 3
+    assert len(fig5.data) == 2
+    assert len(fig6.data) == 3
+    assert len(fig7.data) == 2
+
+
 def test_streamlit_apptest_smoke():
-    """Executa app.py via Streamlit AppTest e valida renderização sem exceções."""
+    """Executa app.py via Streamlit AppTest e valida renderização e navegação nos slides."""
     from streamlit.testing.v1 import AppTest
 
     app_path = Path(__file__).resolve().parent.parent / "app.py"
@@ -81,7 +121,17 @@ def test_streamlit_apptest_smoke():
     assert not at.exception
     assert not at.error
     assert len(at.metric) == 4
-    assert len(at.tabs) == 3
+    assert len(at.tabs) == 4
+
+    # Avança para o Slide 2 e depois ativa visão contínua de todos os slides
+    at.button(key="btn_slide_next").click().run()
+    assert not at.exception
+    assert not at.error
+    assert at.session_state["presentation_slide_idx"] == 1
+
+    at.checkbox(key="chk_show_all_slides").check().run()
+    assert not at.exception
+    assert not at.error
 
 
 def test_dashboard_launcher_helpers():
