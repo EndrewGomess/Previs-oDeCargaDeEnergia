@@ -80,7 +80,9 @@ def _apply_slide_chart_layout(
     fig: go.Figure,
     title: str,
     height: int = 400,
-    top_margin: int = 84,
+    top_margin: int = 92,
+    bottom_margin: int = 42,
+    right_margin: int = 32,
 ) -> None:
     """Padroniza layout escuro limpo para os gráficos da apresentação em slides."""
     fig.update_layout(
@@ -97,7 +99,7 @@ def _apply_slide_chart_layout(
             font=dict(size=14, color=COLOR_TEXT),
         ),
         height=height,
-        margin=dict(l=20, r=28, t=top_margin, b=30),
+        margin=dict(l=24, r=right_margin, t=top_margin, b=bottom_margin),
     )
 
 
@@ -154,18 +156,21 @@ def build_slide1_progression_figure(summary: Dict[str, Any]) -> go.Figure:
     _apply_slide_chart_layout(
         fig,
         title="Redução Progressiva do MAE Out-of-Sample (1.049 dias | 12 Janelas)",
-        height=390,
-        top_margin=56,
+        height=420,
+        top_margin=64,
+        bottom_margin=40,
+        right_margin=44,
     )
     fig.update_layout(
-        margin=dict(l=20, r=36, t=56, b=30),
+        bargap=0.32,
         xaxis=dict(
             title="MAE (MWmed) — menor é melhor",
-            range=[0, max_mae * 1.62],
+            range=[0, max_mae * 1.66],
             showgrid=True,
             gridcolor=COLOR_GRID,
             tickformat=",.0f",
             tickfont=dict(color=COLOR_MUTED),
+            title_standoff=10,
         ),
         yaxis=dict(
             title="",
@@ -218,18 +223,30 @@ def build_slide2_daytype_figure(day_breakdown: pd.DataFrame) -> go.Figure:
     _apply_slide_chart_layout(
         fig,
         title="MAE por Tipo de Dia: Onde o Baseline Quebra e o Modelo Corrige",
-        height=410,
+        height=465,
+        top_margin=92,
+        bottom_margin=40,
+        right_margin=40,
     )
     fig.update_layout(
         barmode="group",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, font=dict(color=COLOR_MUTED)),
+        bargap=0.28,
+        bargroupgap=0.14,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            x=0,
+            font=dict(color=COLOR_MUTED, size=11.5),
+        ),
         xaxis=dict(
             title="MAE (MWmed)",
-            range=[0, max_x * 1.24],
+            range=[0, max_x * 1.28],
             showgrid=True,
             gridcolor=COLOR_GRID,
             tickformat=",.0f",
             tickfont=dict(color=COLOR_MUTED),
+            title_standoff=10,
         ),
         yaxis=dict(
             title="",
@@ -284,7 +301,14 @@ def build_slide3_holiday_echo_figure(eval_enriched: pd.DataFrame) -> go.Figure:
         )
     )
 
+    y_range = None
     if not df.empty:
+        y_vals = pd.concat([df["y_true"], df["y_pred_baseline"], df["y_pred_lgbm"]]).dropna()
+        if not y_vals.empty:
+            y_min, y_max = float(y_vals.min()), float(y_vals.max())
+            span = max(y_max - y_min, 2000.0)
+            y_range = [y_min - span * 0.34, y_max + span * 0.14]
+
         row_jan1 = df[df["data_referencia"] == pd.Timestamp("2025-01-01")]
         if not row_jan1.empty:
             y_jan1 = float(row_jan1["y_true"].iloc[0])
@@ -294,11 +318,12 @@ def build_slide3_holiday_echo_figure(eval_enriched: pd.DataFrame) -> go.Figure:
                 text="01/01 Feriado<br>(35.904 MWmed)",
                 showarrow=True,
                 arrowhead=2,
-                ax=0,
-                ay=38,
-                font=dict(size=10, color=COLOR_TEXT),
+                ax=-12,
+                ay=40,
+                font=dict(size=10.5, color=COLOR_TEXT),
                 bgcolor="#1e293b",
                 bordercolor=COLOR_BORDER,
+                borderpad=5,
             )
 
         row_jan8 = df[df["data_referencia"] == pd.Timestamp("2025-01-08")]
@@ -310,28 +335,46 @@ def build_slide3_holiday_echo_figure(eval_enriched: pd.DataFrame) -> go.Figure:
                 text="08/01 Eco D+7: Baseline<br>copia 01/01 (erro 11.210 MWmed)",
                 showarrow=True,
                 arrowhead=2,
-                ax=45,
-                ay=34,
-                font=dict(size=10, color="#fca5a5"),
+                ax=28,
+                ay=38,
+                font=dict(size=10.5, color="#fca5a5"),
                 bgcolor="#1e293b",
                 bordercolor=COLOR_ERROR,
+                borderpad=5,
             )
 
     _apply_slide_chart_layout(
         fig,
         title="Caso Real 1: Ano Novo 2025 e Eco D+7 em 08/01/2025",
-        height=390,
+        height=430,
+        top_margin=92,
+        bottom_margin=38,
     )
     fig.update_layout(
         hovermode="x unified",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, font=dict(color=COLOR_MUTED)),
-        xaxis=dict(title="", showgrid=False, tickformat="%d/%m", tickfont=dict(color=COLOR_MUTED)),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            x=0,
+            font=dict(color=COLOR_MUTED, size=11.5),
+        ),
+        xaxis=dict(
+            title="",
+            showgrid=False,
+            tickformat="%d/%m",
+            tickfont=dict(color=COLOR_MUTED),
+            automargin=True,
+        ),
         yaxis=dict(
             title="Carga de Energia (MWmed)",
+            range=y_range,
             showgrid=True,
             gridcolor=COLOR_GRID,
             tickformat=",.0f",
             tickfont=dict(color=COLOR_MUTED),
+            title_standoff=10,
+            automargin=True,
         ),
     )
     return fig
@@ -379,7 +422,14 @@ def build_slide4_shock_damping_figure(eval_enriched: pd.DataFrame) -> go.Figure:
         )
     )
 
+    y_range = None
     if not df.empty:
+        y_vals = pd.concat([df["y_true"], df["y_pred_baseline"], df["y_pred_lgbm"]]).dropna()
+        if not y_vals.empty:
+            y_min, y_max = float(y_vals.min()), float(y_vals.max())
+            span = max(y_max - y_min, 2000.0)
+            y_range = [y_min - span * 0.25, y_max + span * 0.28]
+
         row_26 = df[df["data_referencia"] == pd.Timestamp("2024-03-26")]
         if not row_26.empty:
             fig.add_annotation(
@@ -388,11 +438,12 @@ def build_slide4_shock_damping_figure(eval_enriched: pd.DataFrame) -> go.Figure:
                 text="Baseline repete pico anterior<br>(erro 7.712 MWmed)",
                 showarrow=True,
                 arrowhead=2,
-                ax=-25,
-                ay=-38,
-                font=dict(size=10, color="#fca5a5"),
+                ax=-20,
+                ay=-42,
+                font=dict(size=10.5, color="#fca5a5"),
                 bgcolor="#1e293b",
                 bordercolor=COLOR_ERROR,
+                borderpad=5,
             )
             fig.add_annotation(
                 x=pd.Timestamp("2024-03-26"),
@@ -400,28 +451,46 @@ def build_slide4_shock_damping_figure(eval_enriched: pd.DataFrame) -> go.Figure:
                 text="LightGBM reverte à média<br>(erro 145 MWmed)",
                 showarrow=True,
                 arrowhead=2,
-                ax=-55,
-                ay=42,
-                font=dict(size=10, color="#fdba74"),
+                ax=20,
+                ay=62,
+                font=dict(size=10.5, color="#fdba74"),
                 bgcolor="#1e293b",
                 bordercolor=COLOR_FORECAST,
+                borderpad=5,
             )
 
     _apply_slide_chart_layout(
         fig,
         title="Caso Real 2: Reversão Térmica e Sexta-Feira Santa (Março/2024)",
-        height=390,
+        height=430,
+        top_margin=92,
+        bottom_margin=38,
     )
     fig.update_layout(
         hovermode="x unified",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, font=dict(color=COLOR_MUTED)),
-        xaxis=dict(title="", showgrid=False, tickformat="%d/%m", tickfont=dict(color=COLOR_MUTED)),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            x=0,
+            font=dict(color=COLOR_MUTED, size=11.5),
+        ),
+        xaxis=dict(
+            title="",
+            showgrid=False,
+            tickformat="%d/%m",
+            tickfont=dict(color=COLOR_MUTED),
+            automargin=True,
+        ),
         yaxis=dict(
             title="Carga de Energia (MWmed)",
+            range=y_range,
             showgrid=True,
             gridcolor=COLOR_GRID,
             tickformat=",.0f",
             tickfont=dict(color=COLOR_MUTED),
+            title_standoff=10,
+            automargin=True,
         ),
     )
     return fig
@@ -439,7 +508,8 @@ def build_slide5_feature_importance_figure(
             "Modelo Base (28 Features sem Clima)",
             "Modelo + Clima D+7 (45 Features)",
         ),
-        vertical_spacing=0.22,
+        vertical_spacing=0.25,
+        row_heights=[0.42, 0.58],
     )
 
     gb = group_base.sort_values("gain_pct", ascending=True)
@@ -480,20 +550,22 @@ def build_slide5_feature_importance_figure(
     _apply_slide_chart_layout(
         fig,
         title="Distribuição da Importância (Gain %) por Família de Atributos",
-        height=460,
-        top_margin=82,
+        height=505,
+        top_margin=88,
+        bottom_margin=44,
+        right_margin=40,
     )
     x_max = max(float(gb["gain_pct"].max()), float(gc["gain_pct"].max())) * 1.24
-    fig.update_layout(margin=dict(l=20, r=36, t=82, b=32))
-    fig.update_annotations(font=dict(size=12, color=COLOR_MUTED))
+    fig.update_layout(bargap=0.26)
+    fig.update_annotations(font=dict(size=12, color=COLOR_MUTED), yshift=6)
     fig.update_xaxes(
         range=[0, x_max],
         showgrid=True,
         gridcolor=COLOR_GRID,
         tickfont=dict(color=COLOR_MUTED),
     )
-    fig.update_xaxes(title_text="% do Ganho Total (Gain)", row=2, col=1)
-    fig.update_yaxes(showgrid=False, automargin=True, tickfont=dict(color=COLOR_TEXT, size=10.5))
+    fig.update_xaxes(title_text="% do Ganho Total (Gain)", title_standoff=10, row=2, col=1)
+    fig.update_yaxes(showgrid=False, automargin=True, tickfont=dict(color=COLOR_TEXT, size=11))
     return fig
 
 
@@ -549,31 +621,44 @@ def build_slide6_fold5_climate_figure(fold_comparison: pd.DataFrame) -> go.Figur
         text="Fold 5 (Verão 2025)<br>3.397 -> 2.389 MWmed (-29,7%)",
         showarrow=False,
         font=dict(size=10.5, color="#fca5a5"),
-        bgcolor="rgba(20, 24, 32, 0.92)",
+        bgcolor=COLOR_CARD,
         bordercolor=COLOR_ERROR,
         borderwidth=1,
-        borderpad=4,
+        borderpad=6,
     )
 
     _apply_slide_chart_layout(
         fig,
         title="Desempenho por Janela (12 Folds): Clima Reverte Derrota no Verão 2025",
-        height=410,
-        top_margin=84,
+        height=445,
+        top_margin=94,
+        bottom_margin=44,
     )
     fig.update_layout(
         barmode="group",
-        legend=dict(orientation="h", yanchor="bottom", y=1.01, x=0, font=dict(color=COLOR_MUTED)),
+        bargap=0.22,
+        bargroupgap=0.08,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            x=0,
+            font=dict(color=COLOR_MUTED, size=11.5),
+        ),
         xaxis=dict(
-            title="Janela Walk-Forward (90 dias)", showgrid=False, tickfont=dict(color=COLOR_MUTED)
+            title="Janela Walk-Forward (90 dias)",
+            showgrid=False,
+            tickfont=dict(color=COLOR_MUTED),
+            title_standoff=10,
         ),
         yaxis=dict(
             title="MAE (MWmed)",
-            range=[0, max_y * 1.34],
+            range=[0, max_y * 1.38],
             showgrid=True,
             gridcolor=COLOR_GRID,
             tickformat=",.0f",
             tickfont=dict(color=COLOR_MUTED),
+            title_standoff=10,
         ),
     )
     return fig
@@ -616,23 +701,37 @@ def build_slide7_error_tail_figure(error_quantiles: pd.DataFrame) -> go.Figure:
     _apply_slide_chart_layout(
         fig,
         title="Compressão da Cauda de Erros: Quantis de Erro Absoluto (MWmed)",
-        height=390,
+        height=435,
+        top_margin=92,
+        bottom_margin=56,
     )
     fig.update_layout(
         barmode="group",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, font=dict(color=COLOR_MUTED)),
+        bargap=0.28,
+        bargroupgap=0.12,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            x=0,
+            font=dict(color=COLOR_MUTED, size=11.5),
+        ),
         xaxis=dict(
             title="Percentil da Distribuição de Erros",
             showgrid=False,
             tickfont=dict(color=COLOR_TEXT),
+            title_standoff=14,
+            automargin=True,
         ),
         yaxis=dict(
             title="Erro Absoluto (MWmed)",
-            range=[0, max_y * 1.18],
+            range=[0, max_y * 1.22],
             showgrid=True,
             gridcolor=COLOR_GRID,
             tickformat=",.0f",
             tickfont=dict(color=COLOR_MUTED),
+            title_standoff=10,
+            automargin=True,
         ),
     )
     return fig
@@ -647,14 +746,14 @@ def _render_callout_box(title: str, body_html: str, accent_color: str = COLOR_FO
             border: 1px solid {COLOR_BORDER};
             border-left: 4px solid {accent_color};
             border-radius: 8px;
-            padding: 0.78rem 0.95rem;
-            margin-bottom: 0.65rem;
+            padding: 0.95rem 1.15rem;
+            margin-bottom: 0.85rem;
         ">
-            <div style="font-size: 0.88rem; font-weight: 700;
-                color: {COLOR_TEXT}; margin-bottom: 0.3rem;">
+            <div style="font-size: 0.92rem; font-weight: 700; line-height: 1.38;
+                color: {COLOR_TEXT}; margin-bottom: 0.42rem;">
                 {title}
             </div>
-            <div style="font-size: 0.83rem; color: {COLOR_MUTED}; line-height: 1.48;">
+            <div style="font-size: 0.86rem; color: {COLOR_MUTED}; line-height: 1.62;">
                 {body_html}
             </div>
         </div>
@@ -672,21 +771,22 @@ def _render_slide_header(
     st.markdown(
         f"""
         <div style="border-bottom: 1px solid {COLOR_BORDER};
-            padding-bottom: 0.65rem; margin-bottom: 0.9rem;">
+            padding-bottom: 0.85rem; margin-bottom: 1.15rem;">
             <div style="
                 font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
                 font-size: 0.74rem;
                 letter-spacing: 0.05em;
                 color: {COLOR_FORECAST};
                 font-weight: 600;
-                margin-bottom: 0.25rem;
+                margin-bottom: 0.35rem;
+                line-height: 1.3;
             ">{tag}</div>
-            <div style="font-size: 1.32rem; font-weight: 700;
-                color: {COLOR_TEXT}; line-height: 1.25;">
+            <div style="font-size: 1.34rem; font-weight: 700;
+                color: {COLOR_TEXT}; line-height: 1.32;">
                 {title}
             </div>
-            <div style="font-size: 0.88rem; color: {COLOR_MUTED};
-                margin-top: 0.3rem; line-height: 1.45;">
+            <div style="font-size: 0.90rem; color: {COLOR_MUTED};
+                margin-top: 0.42rem; line-height: 1.56;">
                 {subtitle_html}
             </div>
         </div>
@@ -703,11 +803,11 @@ def _render_slide_footer(takeaway_html: str) -> None:
             background-color: rgba(31, 119, 180, 0.10);
             border: 1px solid rgba(31, 119, 180, 0.35);
             border-radius: 8px;
-            padding: 0.6rem 0.9rem;
-            margin-top: 0.55rem;
-            font-size: 0.84rem;
+            padding: 0.8rem 1.05rem;
+            margin-top: 0.85rem;
+            font-size: 0.86rem;
             color: {COLOR_TEXT};
-            line-height: 1.42;
+            line-height: 1.56;
         ">
             <strong style="color: {COLOR_FORECAST};">Onde a mudança faz diferença:</strong>
             {takeaway_html}
@@ -881,11 +981,14 @@ def _render_single_slide(
                 _render_callout_box(
                     "Falha dupla da regra y(t) = y(t-7)",
                     (
-                        "<strong>1. No feriado (01/01/2025):</strong> A carga real caiu para "
-                        "35.904 MWmed.<br><strong>2. Sete dias depois (08/01/2025):</strong> "
+                        "<div><strong>1. No feriado (01/01/2025):</strong> A carga real caiu para "
+                        "35.904 MWmed.</div>"
+                        '<div style="margin-top: 0.45rem;">'
+                        "<strong>2. Sete dias depois (08/01/2025):</strong> "
                         "Em uma quarta-feira útil normal de <strong>47.114 MWmed</strong>, o "
                         "Baseline repetiu os 35.904 MWmed de 01/01, errando "
                         "<strong>11.210 MWmed (23,8%)</strong> em um único dia."
+                        "</div>"
                     ),
                     accent_color=COLOR_ERROR,
                 )
@@ -1144,14 +1247,17 @@ def _render_single_slide(
                 _render_callout_box(
                     "Resumo: Alavanca -> Problema Resolvido -> Ganho",
                     (
-                        "<strong>1. Lags &ge;7d + Médias Móveis:</strong> amortece ruído "
-                        "semanal (-41,1% em extremos).<br>"
+                        "<div><strong>1. Lags &ge;7d + Médias Móveis:</strong> amortece ruído "
+                        "semanal (-41,1% em extremos).</div>"
+                        '<div style="margin-top: 0.38rem;">'
                         "<strong>2. Calendário BR + Pontes:</strong> corrige feriados "
-                        "(-36,5%) e eco D+7 (-57,2%).<br>"
+                        "(-36,5%) e eco D+7 (-57,2%).</div>"
+                        '<div style="margin-top: 0.38rem;">'
                         "<strong>3. Regime ONS (MMGD):</strong> calibra mudança estrutural "
-                        "pós-abr/2023.<br>"
+                        "pós-abr/2023.</div>"
+                        '<div style="margin-top: 0.38rem;">'
                         "<strong>4. Clima D+7 (ERA5/CDD):</strong> resolve ondas de calor "
-                        "(Fold 5) e eleva ganho a +24,61%."
+                        "(Fold 5) e eleva ganho a +24,61%.</div>"
                     ),
                     accent_color=COLOR_REAL,
                 )
@@ -1206,7 +1312,7 @@ def render_presentation_tab(
     current_idx = int(st.session_state["presentation_slide_idx"])
 
     with st.container(border=True):
-        c_prev, c_select, c_next, c_all = st.columns([1.15, 3.3, 1.15, 1.6])
+        c_prev, c_select, c_next, c_all = st.columns([1.15, 3.3, 1.15, 1.6], gap="medium")
         with c_prev:
             st.button(
                 "Slide Anterior",
@@ -1234,6 +1340,7 @@ def render_presentation_tab(
                 key="btn_slide_next",
             )
         with c_all:
+            st.markdown("<div style='height: 0.35rem;'></div>", unsafe_allow_html=True)
             show_all = st.checkbox(
                 "Exibir todos os slides",
                 value=False,
@@ -1253,9 +1360,10 @@ def render_presentation_tab(
         )
         st.markdown(
             f"""
-            <div style="margin-top: 0.35rem;">
+            <div style="margin-top: 0.65rem;">
                 <div style="display:flex;justify-content:space-between;
-                    font-size:0.75rem;color:{COLOR_MUTED};margin-bottom:0.25rem;">
+                    font-size:0.78rem;color:{COLOR_MUTED};margin-bottom:0.4rem;
+                    line-height:1.4;">
                     <span>Roteiro Explicativo: Por que o Modelo Vence o Baseline</span>
                     <span>{status_label}</span>
                 </div>
@@ -1269,9 +1377,13 @@ def render_presentation_tab(
             unsafe_allow_html=True,
         )
 
+    st.markdown("<div style='height: 0.45rem;'></div>", unsafe_allow_html=True)
+
     if show_all:
         for idx in range(total_slides):
             _render_single_slide(idx, analytics, term_fn)
+            if idx < total_slides - 1:
+                st.markdown("<div style='height: 0.65rem;'></div>", unsafe_allow_html=True)
     else:
         _render_single_slide(current_idx, analytics, term_fn)
 
@@ -1301,7 +1413,7 @@ def main() -> None:
     header_html = (
         '<div class="dashboard-header">'
         "<div>"
-        '<h1 class="dashboard-title" style="font-size: 1.75rem; margin: 0;">'
+        '<h1 class="dashboard-title">'
         f"Apresentação Executiva: {term('LightGBM')} vs Baseline - "
         f'<span style="white-space:nowrap;">Subsistema {term("SE")} ({term("ONS")})</span>'
         "</h1>"

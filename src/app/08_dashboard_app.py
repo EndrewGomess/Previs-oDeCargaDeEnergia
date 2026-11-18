@@ -157,8 +157,8 @@ def _apply_dark_style() -> None:
                 color: {COLOR_TEXT};
             }}
             .block-container {{
-                padding-top: 1.5rem;
-                padding-bottom: 2.5rem;
+                padding-top: 1.75rem;
+                padding-bottom: 3rem;
                 max-width: 1400px;
             }}
             header[data-testid="stHeader"] {{
@@ -169,50 +169,79 @@ def _apply_dark_style() -> None:
                 background-color: {COLOR_CARD};
                 border: 1px solid {COLOR_BORDER};
                 border-radius: 10px;
+                overflow: visible;
             }}
             div[data-testid="stMetric"] {{
                 background-color: {COLOR_CARD};
                 border: 1px solid {COLOR_BORDER};
                 border-radius: 10px;
-                padding: 1rem 1.1rem;
+                padding: 1.05rem 1.15rem;
+                min-height: 132px;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
             }}
             div[data-testid="stMetricLabel"] {{
                 font-weight: 500;
                 color: {COLOR_MUTED};
                 font-size: 0.85rem;
+                line-height: 1.38;
+                margin-bottom: 0.35rem;
             }}
-            div[data-testid="stMetricValue"] {{
+            div[data-testid="stMetricValue"],
+            div[data-testid="stMetricValue"] > div {{
                 font-weight: 700;
                 color: {COLOR_TEXT};
+                font-size: clamp(1.28rem, 1.75vw, 1.72rem);
+                line-height: 1.25;
+                white-space: nowrap;
+            }}
+            div[data-testid="stMetricDelta"] {{
+                margin-top: 0.35rem;
+                font-size: 0.82rem;
+                line-height: 1.35;
+            }}
+            /* Abas e containers secundários com espaçamento confortável */
+            div[data-testid="stTabs"] {{
+                margin-top: 0.65rem;
+            }}
+            div[data-testid="stTabs"] button[role="tab"] {{
+                padding-top: 0.65rem;
+                padding-bottom: 0.65rem;
+                font-size: 0.92rem;
+            }}
+            div[data-testid="stTabs"] div[data-baseweb="tab-panel"] {{
+                padding-top: 1.1rem;
             }}
             .dashboard-header {{
                 border-bottom: 1px solid {COLOR_BORDER};
-                padding-bottom: 0.9rem;
-                margin-bottom: 1rem;
+                padding-bottom: 1.1rem;
+                margin-bottom: 1.25rem;
                 display: flex;
                 flex-wrap: wrap;
                 justify-content: space-between;
                 align-items: flex-end;
-                gap: 0.75rem;
+                gap: 0.9rem 1.5rem;
             }}
             .dashboard-title {{
-                font-size: 1.75rem;
+                font-size: clamp(1.42rem, 2.05vw, 1.75rem);
                 font-weight: 700;
                 color: {COLOR_TEXT};
                 margin: 0;
-                line-height: 1.25;
+                line-height: 1.32;
             }}
             .dashboard-subtitle {{
                 color: {COLOR_MUTED};
-                font-size: 0.92rem;
-                margin: 0.35rem 0 0 0;
-                max-width: 820px;
-                line-height: 1.45;
+                font-size: 0.93rem;
+                margin: 0.5rem 0 0 0;
+                max-width: 840px;
+                line-height: 1.58;
             }}
             .dashboard-source {{
                 color: {COLOR_MUTED};
                 font-size: 0.78rem;
                 font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+                line-height: 1.45;
             }}
             /* Tooltips interativos para siglas e termos técnicos */
             .term-tip {{
@@ -234,16 +263,16 @@ def _apply_dark_style() -> None:
                 bottom: calc(100% + 8px);
                 transform: translateX(-50%);
                 width: max-content;
-                max-width: 280px;
+                max-width: 290px;
                 white-space: normal;
                 background-color: #1e293b;
                 color: #f8fafc;
                 border: 1px solid #334155;
                 border-radius: 6px;
-                padding: 0.5rem 0.65rem;
-                font-size: 0.75rem;
+                padding: 0.55rem 0.75rem;
+                font-size: 0.76rem;
                 font-weight: 400;
-                line-height: 1.35;
+                line-height: 1.45;
                 box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
                 opacity: 0;
                 pointer-events: none;
@@ -267,16 +296,33 @@ def _format_pt_number(value: float, decimals: int = 1) -> str:
     return formatted.replace(",", "_").replace(".", ",").replace("_", ".")
 
 
-def _base_dark_layout(fig: go.Figure, title: str = "", height: int = 400) -> None:
-    """Aplica padronização visual escura limpa e sem grades excessivas nas figuras Plotly."""
+def _base_dark_layout(
+    fig: go.Figure,
+    title: str = "",
+    height: int = 400,
+    top_margin: int | None = None,
+) -> None:
+    """Aplica padronização visual escura limpa e sem colisão entre título e legenda."""
+    resolved_top = top_margin if top_margin is not None else (88 if title else 52)
     fig.update_layout(
         template="plotly_dark",
         paper_bgcolor=COLOR_CARD,
         plot_bgcolor=COLOR_CARD,
-        font=dict(color=COLOR_TEXT, family="sans-serif"),
-        title=dict(text=title, font=dict(size=14, color=COLOR_TEXT)) if title else None,
+        font=dict(color=COLOR_TEXT, family="sans-serif", size=12),
+        title=(
+            dict(
+                text=title,
+                x=0.01,
+                xanchor="left",
+                y=0.96,
+                yanchor="top",
+                font=dict(size=14, color=COLOR_TEXT),
+            )
+            if title
+            else None
+        ),
         height=height,
-        margin=dict(l=20, r=20, t=48 if title else 36, b=24),
+        margin=dict(l=24, r=24, t=resolved_top, b=36),
     )
 
 
@@ -376,6 +422,7 @@ def build_main_timeline_figure(
                     annotation_position="top left",
                     annotation_font_size=11,
                     annotation_font_color=COLOR_MUTED,
+                    annotation_yshift=-4,
                 )
 
         future_rows = df_filtered[df_filtered["tipo_registro"] == "Previsao D+7"]
@@ -390,15 +437,29 @@ def build_main_timeline_figure(
                 annotation_position="top right",
                 annotation_font_size=11,
                 annotation_font_color=COLOR_FORECAST,
+                annotation_yshift=-4,
             )
 
-    _base_dark_layout(fig, height=450)
+    y_cols = ["carga_real_mwmed", "carga_prevista_lgbm_mwmed"]
+    if show_baseline:
+        y_cols.append("baseline_semanal_mwmed")
+    if show_ci:
+        y_cols.extend(["ic_inferior_mwmed", "ic_superior_mwmed"])
+    y_vals = pd.concat([df_filtered[c].dropna() for c in y_cols if c in df_filtered.columns])
+    yaxis_range = None
+    if not y_vals.empty:
+        y_min = float(y_vals.min())
+        y_max = float(y_vals.max())
+        span = max(y_max - y_min, 1000.0)
+        yaxis_range = [y_min - span * 0.05, y_max + span * 0.14]
+
+    _base_dark_layout(fig, height=465, top_margin=58)
     fig.update_layout(
         hovermode="x unified",
         legend=dict(
             orientation="h",
             yanchor="bottom",
-            y=1.02,
+            y=1.04,
             xanchor="right",
             x=1,
             bgcolor="rgba(0,0,0,0)",
@@ -410,15 +471,19 @@ def build_main_timeline_figure(
             showline=True,
             linecolor=COLOR_BORDER,
             tickfont=dict(color=COLOR_MUTED),
+            automargin=True,
         ),
         yaxis=dict(
             title="Carga de Energia (MWmed)",
+            range=yaxis_range,
             showgrid=True,
             gridcolor=COLOR_GRID,
             zeroline=False,
             tickformat=",.0f",
             tickfont=dict(color=COLOR_MUTED),
             title_font=dict(color=COLOR_MUTED),
+            title_standoff=10,
+            automargin=True,
         ),
     )
     return fig
@@ -457,12 +522,27 @@ def build_error_timeseries_figure(df_eval: pd.DataFrame) -> go.Figure:
         )
     )
 
-    _base_dark_layout(fig, title="Evolução Diária do Erro Absoluto (MWmed)", height=360)
+    _base_dark_layout(
+        fig,
+        title="Evolução Diária do Erro Absoluto (MWmed)",
+        height=395,
+        top_margin=92,
+    )
     fig.update_layout(
         hovermode="x unified",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, font=dict(color=COLOR_MUTED)),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.03,
+            x=0,
+            font=dict(color=COLOR_MUTED, size=11.5),
+        ),
         xaxis=dict(
-            title="", showgrid=False, linecolor=COLOR_BORDER, tickfont=dict(color=COLOR_MUTED)
+            title="",
+            showgrid=False,
+            linecolor=COLOR_BORDER,
+            tickfont=dict(color=COLOR_MUTED),
+            automargin=True,
         ),
         yaxis=dict(
             title="Erro Absoluto (MWmed)",
@@ -470,6 +550,8 @@ def build_error_timeseries_figure(df_eval: pd.DataFrame) -> go.Figure:
             gridcolor=COLOR_GRID,
             tickformat=",.0f",
             tickfont=dict(color=COLOR_MUTED),
+            title_standoff=10,
+            automargin=True,
         ),
     )
     return fig
@@ -508,21 +590,36 @@ def build_residual_histogram_figure(df_eval: pd.DataFrame) -> go.Figure:
 
     fig.add_vline(x=0, line_width=1.4, line_dash="dash", line_color=COLOR_MUTED)
 
-    _base_dark_layout(fig, title="Distribuição de Resíduos (Carga Real - Prevista)", height=360)
+    _base_dark_layout(
+        fig,
+        title="Distribuição de Resíduos (Carga Real - Prevista)",
+        height=395,
+        top_margin=92,
+    )
     fig.update_layout(
         barmode="overlay",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, font=dict(color=COLOR_MUTED)),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.03,
+            x=0,
+            font=dict(color=COLOR_MUTED, size=11.5),
+        ),
         xaxis=dict(
             title="Resíduo (MWmed)",
             showgrid=False,
             tickformat=",.0f",
             tickfont=dict(color=COLOR_MUTED),
+            title_standoff=10,
+            automargin=True,
         ),
         yaxis=dict(
             title="Contagem de Dias",
             showgrid=True,
             gridcolor=COLOR_GRID,
             tickfont=dict(color=COLOR_MUTED),
+            title_standoff=10,
+            automargin=True,
         ),
     )
     return fig
@@ -553,18 +650,37 @@ def build_folds_bar_figure(bt_folds: pd.DataFrame) -> go.Figure:
     )
 
     _base_dark_layout(
-        fig, title="Desempenho Walk-Forward por Janela de 90 Dias (MAE em MWmed)", height=350
+        fig,
+        title="Desempenho Walk-Forward por Janela de 90 Dias (MAE em MWmed)",
+        height=385,
+        top_margin=92,
     )
     fig.update_layout(
         barmode="group",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, font=dict(color=COLOR_MUTED)),
-        xaxis=dict(title="Janela de Backtesting", showgrid=False, tickfont=dict(color=COLOR_MUTED)),
+        bargap=0.25,
+        bargroupgap=0.10,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.03,
+            x=0,
+            font=dict(color=COLOR_MUTED, size=11.5),
+        ),
+        xaxis=dict(
+            title="Janela de Backtesting",
+            showgrid=False,
+            tickfont=dict(color=COLOR_MUTED),
+            title_standoff=10,
+            automargin=True,
+        ),
         yaxis=dict(
             title="MAE (MWmed)",
             showgrid=True,
             gridcolor=COLOR_GRID,
             tickformat=",.0f",
             tickfont=dict(color=COLOR_MUTED),
+            title_standoff=10,
+            automargin=True,
         ),
     )
     return fig
@@ -600,13 +716,24 @@ def build_climate_correlation_figure(df_filtered: pd.DataFrame) -> go.Figure:
         )
 
     _base_dark_layout(
-        fig, title="Dinâmica Carga Elétrica (MWmed) vs Temperatura Média SE (°C)", height=360
+        fig,
+        title="Dinâmica Carga Elétrica (MWmed) vs Temperatura Média SE (°C)",
+        height=395,
+        top_margin=92,
     )
     fig.update_layout(
         hovermode="x unified",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, font=dict(color=COLOR_MUTED)),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.03,
+            x=0,
+            font=dict(color=COLOR_MUTED, size=11.5),
+        ),
     )
-    fig.update_xaxes(title_text="", showgrid=False, tickfont=dict(color=COLOR_MUTED))
+    fig.update_xaxes(
+        title_text="", showgrid=False, tickfont=dict(color=COLOR_MUTED), automargin=True
+    )
     fig.update_yaxes(
         title_text="Carga de Energia (MWmed)",
         secondary_y=False,
@@ -614,12 +741,16 @@ def build_climate_correlation_figure(df_filtered: pd.DataFrame) -> go.Figure:
         gridcolor=COLOR_GRID,
         tickformat=",.0f",
         tickfont=dict(color=COLOR_MUTED),
+        title_standoff=10,
+        automargin=True,
     )
     fig.update_yaxes(
         title_text="Temperatura Média (°C)",
         secondary_y=True,
         showgrid=False,
         tickfont=dict(color=COLOR_MUTED),
+        title_standoff=10,
+        automargin=True,
     )
     return fig
 
@@ -633,6 +764,7 @@ def build_climate_scenarios_figure(clima_comp: pd.DataFrame) -> go.Figure:
         COLOR_FORECAST,
         COLOR_TEMP,
     ]
+    max_mae = float(clima_comp["mae_mwmed"].max()) if not clima_comp.empty else 2500.0
     fig = go.Figure(
         data=[
             go.Bar(
@@ -641,29 +773,42 @@ def build_climate_scenarios_figure(clima_comp: pd.DataFrame) -> go.Figure:
                 orientation="h",
                 marker_color=colors[: len(clima_comp)],
                 text=[
-                    f"{mae:,.1f} MWmed (MAPE {mape:.2f}%)"
+                    f"{_format_pt_number(mae, 1)} MWmed (MAPE {_format_pt_number(mape, 2)}%)"
                     for mae, mape in zip(
                         clima_comp["mae_mwmed"], clima_comp["mape_pct"], strict=True
                     )
                 ],
-                textposition="auto",
+                textposition="inside",
+                insidetextanchor="end",
+                textfont=dict(color=COLOR_TEXT, size=11.5),
                 hovertemplate="%{y}<br>MAE: %{x:,.1f} MWmed<extra></extra>",
             )
         ]
     )
     _base_dark_layout(
-        fig, title="Impacto da Temperatura Exógena (12 Janelas Walk-Forward)", height=360
+        fig,
+        title="Impacto da Temperatura Exógena (12 Janelas Walk-Forward)",
+        height=395,
+        top_margin=64,
     )
     fig.update_layout(
+        bargap=0.26,
         xaxis=dict(
             title="MAE (MWmed)",
+            range=[0, max_mae * 1.12],
             showgrid=True,
             gridcolor=COLOR_GRID,
             tickformat=",.0f",
             tickfont=dict(color=COLOR_MUTED),
+            title_standoff=10,
+            automargin=True,
         ),
         yaxis=dict(
-            title="", autorange="reversed", showgrid=False, tickfont=dict(color=COLOR_MUTED)
+            title="",
+            autorange="reversed",
+            showgrid=False,
+            tickfont=dict(color=COLOR_MUTED, size=11),
+            automargin=True,
         ),
     )
     return fig
@@ -714,9 +859,9 @@ def render_top_filters(
         st.session_state["filter_preset"] = "Personalizado"
 
     with st.container(border=True):
-        c1, c2, c3, c4, c5, c6 = st.columns([1.35, 1.0, 1.0, 1.3, 1.15, 1.3])
+        r1_c1, r1_c2, r1_c3, r1_c4 = st.columns([1.65, 1.0, 1.0, 1.65], gap="medium")
 
-        with c1:
+        with r1_c1:
             st.selectbox(
                 "Recorte Temporal",
                 options=preset_options,
@@ -727,7 +872,7 @@ def render_top_filters(
                     "seguintes ao último registro histórico observado."
                 ),
             )
-        with c2:
+        with r1_c2:
             start_date = st.date_input(
                 "Data Inicial",
                 min_value=min_date,
@@ -736,7 +881,7 @@ def render_top_filters(
                 on_change=_on_manual_date_change,
                 help="Data de início exibida na série temporal e usada nos KPIs.",
             )
-        with c3:
+        with r1_c3:
             end_date = st.date_input(
                 "Data Final",
                 min_value=min_date,
@@ -745,7 +890,7 @@ def render_top_filters(
                 on_change=_on_manual_date_change,
                 help="Data final exibida (inclui o horizonte projetado D+1 a D+7).",
             )
-        with c4:
+        with r1_c4:
             regime_filter = st.selectbox(
                 "Regime de Medição ONS",
                 options=["Todos"] + list(REGIME_LABELS.keys()),
@@ -757,7 +902,9 @@ def render_top_filters(
                     "(mar/2021) e estimativa de MMGD - Micro e Minigeração Distribuída (abr/2023)."
                 ),
             )
-        with c5:
+
+        r2_c1, r2_c2, r2_c3 = st.columns([1.65, 1.85, 1.80], gap="medium")
+        with r2_c1:
             fold_options = ["Todos"] + [f"Fold {int(f)}" for f in bt_folds["fold"]]
             fold_filter = st.selectbox(
                 "Janela Backtesting (90d)",
@@ -768,13 +915,15 @@ def render_top_filters(
                     "da amostra no backtesting walk-forward (2024 a 2026)."
                 ),
             )
-        with c6:
-            st.markdown("<div style='height: 0.35rem;'></div>", unsafe_allow_html=True)
+        with r2_c2:
+            st.markdown("<div style='height: 1.75rem;'></div>", unsafe_allow_html=True)
             show_baseline = st.checkbox(
                 "Exibir Baseline Semanal (t-7)",
                 value=True,
                 help=GLOSSARY["Baseline Ingênuo Semanal"],
             )
+        with r2_c3:
+            st.markdown("<div style='height: 1.75rem;'></div>", unsafe_allow_html=True)
             show_ci = st.checkbox(
                 "Exibir Intervalo de Confiança (90%)",
                 value=True,
@@ -804,7 +953,8 @@ def main() -> None:
         '<div class="dashboard-header">'
         "<div>"
         '<h1 class="dashboard-title">'
-        f"Dashboard de Previsão de Demanda de Energia - Subsistema {_term('SE')} ({_term('ONS')})"
+        "Dashboard de Previsão de Demanda de Energia - "
+        f'<span style="white-space:nowrap;">Subsistema {_term("SE")} ({_term("ONS")})</span>'
         "</h1>"
         '<p class="dashboard-subtitle">'
         f"Monitoramento operacional da carga diária de energia elétrica ({_term('MWmed')}) "
@@ -825,6 +975,8 @@ def main() -> None:
         df_timeline, bt_folds
     )
 
+    st.markdown("<div style='height: 0.35rem;'></div>", unsafe_allow_html=True)
+
     # Aplicação dinâmica dos filtros selecionados
     mask = (df_timeline["data_referencia"].dt.date >= start_date) & (
         df_timeline["data_referencia"].dt.date <= end_date
@@ -841,7 +993,7 @@ def main() -> None:
     kpis = compute_kpis(df_filtered, df_forecast_7d)
 
     # Cartões de métricas principais logo abaixo dos filtros
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4 = st.columns(4, gap="medium")
     has_eval = int(kpis["n_eval"]) > 0
 
     with col1:
@@ -898,7 +1050,7 @@ def main() -> None:
     with col4:
         peak_date_br = pd.Timestamp(str(kpis["peak_next_7d_date"])).strftime("%d/%m/%Y")
         st.metric(
-            label="Pico de Carga Prevista (D+1 a D+7)",
+            label="Pico Previsto (D+1 a D+7)",
             value=f"{_format_pt_number(float(kpis['peak_next_7d_mwmed']), 1)} MWmed",
             delta=f"Data prevista: {peak_date_br}",
             delta_color="off",
@@ -912,12 +1064,15 @@ def main() -> None:
             "marcadas como N/D."
         )
 
+    st.markdown("<div style='height: 0.35rem;'></div>", unsafe_allow_html=True)
+
     # Gráfico principal dentro de card escuro
     with st.container(border=True):
         st.markdown(
-            f"<div style='font-size: 1.05rem; font-weight: 600; margin-bottom: 0.25rem;'>"
+            f"<div style='font-size: 1.05rem; font-weight: 600; "
+            f"line-height: 1.45; margin-bottom: 0.35rem;'>"
             f"Série Histórica Observada e Previsão de Carga (Horizonte {_term('D+7')}) "
-            f"&nbsp;|&nbsp; <span style='font-size:0.8rem;font-weight:400;color:{COLOR_MUTED};'>"
+            f"&nbsp;|&nbsp; <span style='font-size:0.82rem;font-weight:400;color:{COLOR_MUTED};'>"
             f"{_term('IC 90%')} &middot; {_term('t-7')} &middot; {_term('MMGD')}"
             f"</span></div>",
             unsafe_allow_html=True,
@@ -939,7 +1094,8 @@ def main() -> None:
 
     with tab_erro:
         st.markdown(
-            f"<p style='font-size:0.84rem;color:{COLOR_MUTED};margin-bottom:0.6rem;'>"
+            f"<p style='font-size:0.87rem;color:{COLOR_MUTED};"
+            f"line-height:1.55;margin-bottom:0.95rem;'>"
             f"Avaliação de {_term('Resíduos')} e erros diários ({_term('MAE')} em "
             f"{_term('MWmed')}) ao longo das janelas de {_term('Backtesting')} "
             f"({_term('Fold')} de 90 dias).</p>",
@@ -954,17 +1110,19 @@ def main() -> None:
                 "e a distribuição dos resíduos."
             )
         else:
-            err_col1, err_col2 = st.columns(2)
+            err_col1, err_col2 = st.columns(2, gap="medium")
             with err_col1:
                 st.plotly_chart(build_error_timeseries_figure(eval_df), width="stretch")
             with err_col2:
                 st.plotly_chart(build_residual_histogram_figure(eval_df), width="stretch")
 
+        st.markdown("<div style='height: 0.45rem;'></div>", unsafe_allow_html=True)
         st.plotly_chart(build_folds_bar_figure(bt_folds), width="stretch")
 
     with tab_clima:
         st.markdown(
-            f"<p style='font-size:0.85rem;color:{COLOR_MUTED};'>"
+            f"<p style='font-size:0.87rem;color:{COLOR_MUTED};"
+            f"line-height:1.6;margin-bottom:0.95rem;'>"
             f"O experimento bônus avalia a inclusão da temperatura média diária ponderada "
             f"das quatro principais capitais do subsistema {_term('SE')} (SP 50%, RJ 25%, "
             f"BH 15%, DF 10%) via {_term('Open-Meteo ERA5')}. Com erro realista de previsão "
@@ -973,12 +1131,13 @@ def main() -> None:
             f"para 24,61% e o {_term('LightGBM')} passa a vencer todas as 12 janelas.</p>",
             unsafe_allow_html=True,
         )
-        clima_col1, clima_col2 = st.columns(2)
+        clima_col1, clima_col2 = st.columns(2, gap="medium")
         with clima_col1:
             st.plotly_chart(build_climate_correlation_figure(df_filtered), width="stretch")
         with clima_col2:
             st.plotly_chart(build_climate_scenarios_figure(clima_comp), width="stretch")
 
+        st.markdown("<div style='height: 0.6rem;'></div>", unsafe_allow_html=True)
         st.subheader("Comparativo Consolidado dos Cenários Climáticos")
         clima_display = clima_comp.rename(
             columns={
@@ -992,7 +1151,19 @@ def main() -> None:
                 "folds_vencidos": "Janelas Vencidas",
             }
         )
-        st.dataframe(clima_display, width="stretch", hide_index=True)
+        st.dataframe(
+            clima_display.style.format(
+                {
+                    "MAE (MWmed)": "{:,.1f}",
+                    "MAPE (%)": "{:.2f}",
+                    "RMSE (MWmed)": "{:,.1f}",
+                    "Ganho MAE vs Baseline (%)": "{:+.2f}",
+                    "Ganho MAPE vs Baseline (%)": "{:+.2f}",
+                }
+            ),
+            width="stretch",
+            hide_index=True,
+        )
 
     with tab_dados:
         st.subheader("Previsão Operacional para os Próximos 7 Dias (D+1 a D+7)")
@@ -1022,6 +1193,7 @@ def main() -> None:
             hide_index=True,
         )
 
+        st.markdown("<div style='height: 0.35rem;'></div>", unsafe_allow_html=True)
         st.download_button(
             label="Exportar Previsão D+7 (CSV)",
             data=df_forecast_7d.to_csv(index=False).encode("utf-8"),
@@ -1029,6 +1201,7 @@ def main() -> None:
             mime="text/csv",
         )
 
+        st.markdown("<div style='height: 0.75rem;'></div>", unsafe_allow_html=True)
         st.subheader("Resumo por Janela do Backtesting Walk-Forward (Etapa 06)")
         folds_display = bt_folds.rename(
             columns={
@@ -1045,7 +1218,20 @@ def main() -> None:
                 "mape_gain_pct": "Ganho MAPE (%)",
             }
         )
-        st.dataframe(folds_display, width="stretch", hide_index=True)
+        st.dataframe(
+            folds_display.style.format(
+                {
+                    "MAE Baseline (MWmed)": "{:,.1f}",
+                    "MAE LightGBM (MWmed)": "{:,.1f}",
+                    "Ganho MAE (%)": "{:+.2f}",
+                    "MAPE Baseline (%)": "{:.2f}",
+                    "MAPE LightGBM (%)": "{:.2f}",
+                    "Ganho MAPE (%)": "{:+.2f}",
+                }
+            ),
+            width="stretch",
+            hide_index=True,
+        )
 
 
 if __name__ == "__main__":
