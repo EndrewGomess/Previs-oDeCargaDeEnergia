@@ -165,6 +165,7 @@ def launch_dashboard(
     open_browser: bool = True,
     force_refresh: bool = False,
     root_dir: Path = ROOT_DIR,
+    target_script: str = "app.py",
 ) -> int:
     """Prepara o ambiente, valida os dados, inicia o Streamlit e abre o navegador."""
     if sys.version_info < (3, 11):
@@ -182,7 +183,7 @@ def launch_dashboard(
         "-m",
         "streamlit",
         "run",
-        "app.py",
+        target_script,
         "--server.port",
         str(selected_port),
         "--server.headless",
@@ -191,7 +192,8 @@ def launch_dashboard(
         "false",
     ]
 
-    print(f"[launcher] Iniciando Dashboard em {app_url} (Ctrl+C para encerrar)...")
+    label = "Apresentação em Slides" if target_script == "slides.py" else "Dashboard"
+    print(f"[launcher] Iniciando {label} em {app_url} (Ctrl+C para encerrar)...")
     proc = subprocess.Popen(cmd, cwd=root_dir)
 
     try:
@@ -234,6 +236,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Reexecuta ingestão Bronze, clima, dbt e backtests antes de abrir o painel.",
     )
+    parser.add_argument(
+        "--slides",
+        action="store_true",
+        help="Inicia a apresentação executiva em slides (slides.py) em vez do dashboard.",
+    )
     return parser.parse_args(argv)
 
 
@@ -244,5 +251,6 @@ if __name__ == "__main__":
             port=args.port,
             open_browser=not args.no_browser,
             force_refresh=args.force_refresh,
+            target_script="slides.py" if args.slides else "app.py",
         )
     )

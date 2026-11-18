@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """08_dashboard_slides.py
 
-Apresentação executiva em slides dentro do Dashboard Streamlit explicando por que o
+Aplicação Streamlit dedicada para apresentação executiva em 7 slides explicando por que o
 modelo LightGBM supera o Baseline Ingênuo Semanal e exatamente onde cada bloco de
 engenharia de atributos (lags multi-horizonte, estatísticas móveis, feriados, regime
 ONS e temperatura exógena) gera ganho mensurável fora da amostra.
@@ -9,6 +9,7 @@ ONS e temperatura exógena) gera ganho mensurável fora da amostra.
 
 from __future__ import annotations
 
+import importlib
 from typing import Any, Callable, Dict, List
 
 import pandas as pd
@@ -1273,3 +1274,54 @@ def render_presentation_tab(
             _render_single_slide(idx, analytics, term_fn)
     else:
         _render_single_slide(current_idx, analytics, term_fn)
+
+
+@st.cache_data(show_spinner="Carregando evidências e slides analíticos...")
+def load_slide_analytics_bundle() -> Dict[str, Any]:
+    """Calcula e armazena em cache as evidências explicativas da apresentação em slides."""
+    data_mod = importlib.import_module("src.app.08_dashboard_data")
+    df_hist = data_mod.load_historical_series()
+    bt_preds, bt_folds, clima_comp, clima_folds = data_mod.load_backtest_artifacts()
+    return data_mod.compute_slide_analytics(df_hist, bt_preds, bt_folds, clima_comp, clima_folds)
+
+
+def main() -> None:
+    """Ponto de entrada standalone para a apresentação executiva em slides."""
+    app_mod = importlib.import_module("src.app.08_dashboard_app")
+    apply_dark_style = app_mod._apply_dark_style
+    term = app_mod._term
+
+    st.set_page_config(
+        page_title="Apresentação Executiva: LightGBM vs Baseline - Subsistema SE (ONS)",
+        layout="wide",
+        initial_sidebar_state="collapsed",
+    )
+    apply_dark_style()
+
+    header_html = (
+        '<div class="dashboard-header">'
+        "<div>"
+        '<h1 class="dashboard-title" style="font-size: 1.75rem; margin: 0;">'
+        f"Apresentação Executiva: {term('LightGBM')} vs Baseline - "
+        f'<span style="white-space:nowrap;">Subsistema {term("SE")} ({term("ONS")})</span>'
+        "</h1>"
+        '<p class="dashboard-subtitle">'
+        f"Diagnóstico explicativo dos ganhos fora da amostra em {term('Backtesting')} "
+        f"walk-forward (1.049 dias | 12 {term('Fold')}s), detalhando onde o "
+        f"{term('Baseline Ingênuo Semanal')} falha e como cada mudança nas variáveis "
+        f"corrige os erros em {term('MWmed')}."
+        "</p>"
+        "</div>"
+        '<div class="dashboard-source">'
+        f"Fonte: {term('ONS')} (2018-2026) | {term('Open-Meteo ERA5')} | {term('DuckDB Gold')}"
+        "</div>"
+        "</div>"
+    )
+    st.markdown(header_html, unsafe_allow_html=True)
+
+    slide_analytics = load_slide_analytics_bundle()
+    render_presentation_tab(slide_analytics, term)
+
+
+if __name__ == "__main__":
+    main()

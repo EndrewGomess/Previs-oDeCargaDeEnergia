@@ -111,27 +111,37 @@ def test_slide_analytics_and_presentation_figures():
 
 
 def test_streamlit_apptest_smoke():
-    """Executa app.py via Streamlit AppTest e valida renderização e navegação nos slides."""
+    """Executa app.py (3 abas) e slides.py (7 slides) separadamente via Streamlit AppTest."""
     from streamlit.testing.v1 import AppTest
 
-    app_path = Path(__file__).resolve().parent.parent / "app.py"
-    at = AppTest.from_file(str(app_path), default_timeout=30)
-    at.run()
+    root_dir = Path(__file__).resolve().parent.parent
 
-    assert not at.exception
-    assert not at.error
-    assert len(at.metric) == 4
-    assert len(at.tabs) == 4
+    # 1. Dashboard principal (sem a aba de slides)
+    at_dash = AppTest.from_file(str(root_dir / "app.py"), default_timeout=30)
+    at_dash.run()
+
+    assert not at_dash.exception
+    assert not at_dash.error
+    assert len(at_dash.metric) == 4
+    assert len(at_dash.tabs) == 3
+
+    # 2. Aplicação separada da apresentação em slides
+    at_slides = AppTest.from_file(str(root_dir / "slides.py"), default_timeout=30)
+    at_slides.run()
+
+    assert not at_slides.exception
+    assert not at_slides.error
+    assert at_slides.session_state["presentation_slide_idx"] == 0
 
     # Avança para o Slide 2 e depois ativa visão contínua de todos os slides
-    at.button(key="btn_slide_next").click().run()
-    assert not at.exception
-    assert not at.error
-    assert at.session_state["presentation_slide_idx"] == 1
+    at_slides.button(key="btn_slide_next").click().run()
+    assert not at_slides.exception
+    assert not at_slides.error
+    assert at_slides.session_state["presentation_slide_idx"] == 1
 
-    at.checkbox(key="chk_show_all_slides").check().run()
-    assert not at.exception
-    assert not at.error
+    at_slides.checkbox(key="chk_show_all_slides").check().run()
+    assert not at_slides.exception
+    assert not at_slides.error
 
 
 def test_dashboard_launcher_helpers():
@@ -148,3 +158,7 @@ def test_dashboard_launcher_helpers():
     assert parsed.port == 8505
     assert parsed.no_browser is True
     assert parsed.force_refresh is True
+    assert parsed.slides is False
+
+    parsed_slides = launcher.parse_args(["--slides"])
+    assert parsed_slides.slides is True

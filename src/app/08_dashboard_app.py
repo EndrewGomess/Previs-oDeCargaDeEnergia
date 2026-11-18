@@ -12,7 +12,7 @@ from __future__ import annotations
 import html
 import importlib
 from datetime import date
-from typing import Any, Dict, Tuple
+from typing import Dict, Tuple
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -20,14 +20,11 @@ import streamlit as st
 from plotly.subplots import make_subplots
 
 data_mod = importlib.import_module("src.app.08_dashboard_data")
-slides_mod = importlib.import_module("src.app.08_dashboard_slides")
 load_historical_series = data_mod.load_historical_series
 load_backtest_artifacts = data_mod.load_backtest_artifacts
 generate_next_7_days_forecast = data_mod.generate_next_7_days_forecast
 build_unified_timeline = data_mod.build_unified_timeline
 compute_kpis = data_mod.compute_kpis
-compute_slide_analytics = data_mod.compute_slide_analytics
-render_presentation_tab = slides_mod.render_presentation_tab
 
 # Paleta escura corporativa alinhada ao layout visual da aplicação
 COLOR_BG = "#0b0e14"
@@ -148,14 +145,6 @@ def load_dashboard_bundle() -> Tuple[
     df_forecast_7d = generate_next_7_days_forecast(df_hist, bt_preds, horizon_days=7)
     df_timeline = build_unified_timeline(df_hist, bt_preds, df_forecast_7d)
     return df_timeline, df_forecast_7d, bt_folds, clima_comp, clima_folds, df_hist
-
-
-@st.cache_data(show_spinner="Preparando análise explicativa dos slides...")
-def load_slide_analytics_bundle() -> Dict[str, Any]:
-    """Calcula e armazena em cache as evidências explicativas da apresentação em slides."""
-    df_hist = load_historical_series()
-    bt_preds, bt_folds, clima_comp, clima_folds = load_backtest_artifacts()
-    return compute_slide_analytics(df_hist, bt_preds, bt_folds, clima_comp, clima_folds)
 
 
 def _apply_dark_style() -> None:
@@ -940,12 +929,11 @@ def main() -> None:
             st.plotly_chart(main_fig, width="stretch")
 
     # Seção secundária em abas organizadas
-    tab_erro, tab_clima, tab_dados, tab_slides = st.tabs(
+    tab_erro, tab_clima, tab_dados = st.tabs(
         [
             "Análise de Erro e Resíduos",
             "Bônus: Impacto Climático (Temperatura SE)",
             "Projeção D+7 e Tabela de Janelas",
-            "Apresentação Executiva (Slides)",
         ]
     )
 
@@ -1058,10 +1046,6 @@ def main() -> None:
             }
         )
         st.dataframe(folds_display, width="stretch", hide_index=True)
-
-    with tab_slides:
-        slide_analytics = load_slide_analytics_bundle()
-        render_presentation_tab(slide_analytics, _term)
 
 
 if __name__ == "__main__":
